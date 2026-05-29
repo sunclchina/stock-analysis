@@ -109,6 +109,10 @@
 
 ```bash
 # 1. 构建前端
+# 如果从 Gitea 克隆：
+#     git clone http://localhost:3000/sunclchina/stock-analysis.git
+#     cd stock-analysis/dev-team/frontend-dev/stock-analysis-frontend
+
 cd dev-team/frontend-dev/stock-analysis-frontend
 npm install
 npm run build
