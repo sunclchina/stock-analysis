@@ -49,11 +49,20 @@ class BaostockDataSource(BaseDataSource):
             # 判断市场
             prefix = "sh" if clean.startswith(("6", "9")) else "sz"
 
+            from datetime import date
+            today = date.today()
+            # count 大约是交易天数，按 250 个交易日/年估算往前推
+            import math
+            approx_years = max(1, math.ceil(count / 250))
+            start = date(today.year - approx_years, 1, 1).strftime("%Y-%m-%d")
+            end = today.strftime("%Y-%m-%d")
+            
             rs = bs.query_history_k_data_plus(
                 f"{prefix}.{clean}",
                 "date,open,high,low,close,volume,amount",
-                start_date="20000101",
-                frequency="d", count=count
+                start_date=start,
+                end_date=end,
+                frequency="d"
             )
             if rs.error_code != '0':
                 return []
@@ -71,6 +80,9 @@ class BaostockDataSource(BaseDataSource):
                     high_price=float(row[2]), low_price=float(row[3]),
                     volume=float(row[5]), amount=float(row[6]),
                 ))
+            # 取最后 count 条
+            if len(results) > count:
+                results = results[-count:]
             return results
         except Exception as e:
             logger.warning(f"Baostock kline failed: {e}")

@@ -707,21 +707,14 @@ async def test_datasource_connection(
 
 
 @router.post("/config/datasource/reset")
-async def reset_datasource():
-    """重置数据源为默认（主数据源）。"""
+async def reset_data_sources():
+    """重置所有数据源的状态。清空失败计数、恢复ONLINE。"""
     try:
         dsm = _get_dsm()
+        dsm.reset_source_status()
         dsm._active_name = dsm._primary_name
-        # 重置主数据源状态
-        primary = dsm.primary
-        if primary:
-            primary._consecutive_failures = 0
-            primary._status = "online"
         await _push_config_change("datasource:reset")
-        return {
-            "status": "ok",
-            "message": f"数据源已重置为 {dsm._primary_name}",
-        }
+        return {"status": "ok", "message": "所有数据源状态已重置"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"重置数据源失败: {str(e)}")
 

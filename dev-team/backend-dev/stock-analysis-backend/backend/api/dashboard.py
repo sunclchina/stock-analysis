@@ -840,7 +840,12 @@ async def get_decision_board():
     from backend.services.data_source.base import KLineData as _KLine
 
     dsm = _get_dsm()
-
+    import sys
+    
+    # 自动重置数据源（解决后台定时任务累计失败导致数据源被误标记为OFFLINE的问题）
+    dsm.reset_source_status()
+    print(f"[QB] reset done. Sources:", {n: f'{s.status}/{s._consecutive_failures}' for n,s in dsm._sources.items()}, file=sys.stderr)
+    
     # 1. 读取监控池
     from sqlalchemy import select as _sl
     from backend.config.database import async_session_factory
@@ -861,7 +866,10 @@ async def get_decision_board():
     # 2. 批量获取行情
     quotes = await dsm.get_quotes(codes)
     if not quotes:
+        import sys
+        print(f"[QB_DBG] quotes empty, codes={codes}, active={dsm._active_name}", file=sys.stderr)
         return {"stocks": [], "stats": {"bullish": 0, "bearish": 0, "neutral": 0, "avg_score": 0}}
+    print(f"[QB_DBG] quotes OK: {len(quotes)} items", file=sys.stderr)
 
     quote_map = {q.code: q for q in quotes}
 
@@ -869,7 +877,15 @@ async def get_decision_board():
     import asyncio
     kline_tasks = [dsm.get_kline(c, 60) for c in codes]
     kline_results = await asyncio.gather(*kline_tasks, return_exceptions=True)
-
+    import sys
+    for i, (c, kr) in enumerate(zip(codes, kline_results)):
+        if isinstance(kr, Exception):
+            print(f"[QB_DBG] kline {c}: EXCEPTION {kr}", file=sys.stderr)
+        elif not kr:
+            print(f"[QB_DBG] kline {c}: EMPTY", file=sys.stderr)
+        else:
+            print(f"[QB_DBG] kline {c}: {len(kr)} bars, last={kr[-1].trade_date} close={kr[-1].close_price}", file=sys.stderr)
+    
     anomalies = await batch_detect_anomalies(quotes, dsm)
 
     # 4. 逐只评分

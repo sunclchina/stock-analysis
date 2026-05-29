@@ -56,7 +56,14 @@ class SinaDataSource(BaseDataSource):
         self._client = None  # 延迟创建
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """获取 httpx 客户端（延迟创建，每个请求独立避免连接池竞争）"""
+        """获取 httpx 客户端（延迟创建，事件循环变更时自动重建）"""
+        if self._client is not None:
+            try:
+                import asyncio
+                _ = asyncio.get_running_loop()
+                _ = self._client.is_closed
+            except (RuntimeError, Exception):
+                self._client = None
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=10.0,

@@ -49,7 +49,8 @@ Thumbs.db
 
 # Backend logs
 dev-team/backend-dev/stock-analysis-backend/logs/
-dev-team/backend-dev/stock-analysis-backend/data/cache/
+dev-team/backend-dev/stock-analysis-backend/data/cache/*.db
+dev-team/backend-dev/stock-analysis-backend/data/kline_cache/
 
 # Environment files (keep .env.example, exclude actual .env)
 .env

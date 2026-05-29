@@ -16,6 +16,7 @@ from backend.services.data_source.base import (
     BaseDataSource,
     QuoteData,
     KLineData,
+    DataSourceStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class DataSourceManager:
     MODULE_SOURCES: Dict[str, List[str]] = {
         # 市场行情
         "market_quotes":      ["eastmoney", "sina", "tdx_local"],       # 批量/单只行情快照
-        "market_kline":       ["tdx_local", "eastmoney", "sina", "baostock"],        # K线数据
+        "market_kline":       ["baostock"],        # K线数据（baostock最稳定）
         "market_sector":      ["akshare", "eastmoney"],              # 板块涨跌
         "market_limit":       ["akshare", "eastmoney"],                 # 涨跌停家数/涨停股池
         "market_northbound":  ["akshare"],                              # 北向资金（仅akshare）
@@ -220,7 +221,9 @@ class DataSourceManager:
         await self.auto_switch_if_needed()
         for name in self._priority_list():
             source = self._sources.get(name)
-            if not source or not source.is_available():
+            if not source:
+                continue
+            if not source.is_available():
                 continue
             try:
                 handler = getattr(source, method, None)
@@ -232,10 +235,8 @@ class DataSourceManager:
                     if self._active_name != name:
                         self._active_name = name
                     return result
-                # 主源和备用源都返回空 → 直接返回空，不再尝试本地源
-                # （非交易日各源都无数据，本地源也读不到当日行情）
-                if name in (self._primary_name, self._fallback_name):
-                    return None if method.startswith("get_quote") else []
+                # 空返回：继续降级尝试下一个源
+                continue
             except Exception:
                 source.record_failure()
                 continue
@@ -244,11 +245,41 @@ class DataSourceManager:
     async def get_quote(self, code: str) -> Optional[QuoteData]:
         return await self._try_all_sources("get_quote", code)
 
+    def reset_source_status(self, name: str = None):
+        """重置数据源状态（失败计数和状态），name=None 时重置全部"""
+        for n, src in self._sources.items():
+            if name and n != name:
+                continue
+            src._consecutive_failures = 0
+            src._status = DataSourceStatus.ONLINE
+            src._last_failure_time = None
+        if name:
+            logger.info(f"数据源 [{name}] 状态已重置")
+        else:
+            logger.info("所有数据源状态已重置")
+
     async def get_quotes(self, codes: List[str]) -> List[QuoteData]:
         return await self._try_all_sources("get_quotes", codes)
 
     async def get_kline(self, code: str, count: int = 120) -> List[KLineData]:
-        return await self._try_all_sources("get_kline", code, count)
+        """
+        获取K线数据。使用模块专用路由：只走 market_kline 的源顺序。
+        不通过 _try_all_sources 通用优先级（避免了新浪/东财K线API不稳定拖垮数据源状态的问题）。
+        """
+        module_sources = self.get_module_sources("market_kline")
+        for name in module_sources:
+            source = self._sources.get(name)
+            if not source:
+                continue
+            try:
+                result = await source.get_kline(code, count)
+                if result and len(result) > 0:
+                    if self._active_name != name:
+                        self._active_name = name
+                    return result
+            except Exception:
+                continue
+        return []
 
     # ─── 默认数据源注册 ────────────────────────
 
