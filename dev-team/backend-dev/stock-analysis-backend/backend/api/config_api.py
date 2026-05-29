@@ -393,8 +393,23 @@ async def get_monitor_pool(db: AsyncSession = Depends(get_db), request: Request 
         .order_by(MonitorItem.id)
     )
     items = result.scalars().all()
-    output = []
+    
+    # 清理同一(code, user_id)的重复记录，只保留第一条
+    seen_codes = {}
+    cleaned = []
     for item in items:
+        key = (item.code, item.user_id)
+        if key in seen_codes:
+            item.is_active = False  # 多余的软删除
+            continue
+        seen_codes[key] = True
+        cleaned.append(item)
+    if len(cleaned) < len(items):
+        await db.commit()
+        logger.info(f"监控池读取时清理了 {len(items) - len(cleaned)} 条重复")
+    
+    output = []
+    for item in cleaned:
         name = item.name
         if not name or name == item.code or len(name) <= 2:
             resolved = await resolve_stock_name(item.code)
@@ -429,29 +444,40 @@ async def add_monitor_item(
     if not code:
         raise HTTPException(status_code=400, detail="股票代码不能为空")
 
-    # 检查是否已存在（仅当前用户）
+    # 检查是否已存在（仅当前用户，兼容重复记录）
     result = await db.execute(
         select(MonitorItem).where(MonitorItem.code == code, MonitorItem.user_id == uid)
     )
-    existing = result.scalar_one_or_none()
-    if existing:
-        if existing.is_active:
-            raise HTTPException(status_code=409, detail=f"股票 {code} 已在监控池中")
-        existing.is_active = True
+    existing_items = result.scalars().all()
+    
+    # 清理软删除的重复记录
+    active_items = [it for it in existing_items if it.is_active]
+    inactive_items = [it for it in existing_items if not it.is_active]
+    
+    if active_items:
+        raise HTTPException(status_code=409, detail=f"股票 {code} 已在监控池中")
+    
+    # 有软删除的记录：复活其中一条，删除其余的
+    if inactive_items:
+        primary = inactive_items[0]
+        primary.is_active = True
         name = data.get("name", "").strip()
         if not name or name == code or len(name) <= 2:
             resolved = await resolve_stock_name(code)
             if resolved and resolved != code:
                 name = resolved
-        existing.name = name
-        existing.monitor_type = data.get("monitor_type", existing.monitor_type)
+        primary.name = name
+        primary.monitor_type = data.get("monitor_type", primary.monitor_type)
         if "threshold_high" in data:
-            existing.threshold_high = data["threshold_high"]
+            primary.threshold_high = data["threshold_high"]
         if "threshold_low" in data:
-            existing.threshold_low = data["threshold_low"]
+            primary.threshold_low = data["threshold_low"]
+        # 删除多余的软删除记录
+        for extra in inactive_items[1:]:
+            await db.delete(extra)
         await db.commit()
         await _push_config_change("monitor:added")
-        return {"status": "ok", "message": f"股票 {code} 已重新加入监控池", "id": existing.id}
+        return {"status": "ok", "message": f"股票 {code} 已重新加入监控池", "id": primary.id}
 
     # 获取股票名称
     name = data.get("name", "").strip()
@@ -482,23 +508,27 @@ async def update_monitor_item(
     db: AsyncSession = Depends(get_db),
     request: Request = None,
 ):
-    """更新监控标的配置。"""
+    """更新监控标的配置（兼容重复记录）。"""
     uid = _get_user_id(request)
     result = await db.execute(
         select(MonitorItem).where(MonitorItem.code == code, MonitorItem.user_id == uid)
     )
-    item = result.scalar_one_or_none()
-    if not item:
+    items = result.scalars().all()
+    if not items:
         raise HTTPException(status_code=404, detail=f"股票 {code} 不在监控池中")
 
+    primary = items[0]
     if "name" in data:
-        item.name = data["name"]
+        primary.name = data["name"]
     if "monitor_type" in data:
-        item.monitor_type = data["monitor_type"]
+        primary.monitor_type = data["monitor_type"]
     if "threshold_high" in data:
-        item.threshold_high = data["threshold_high"]
+        primary.threshold_high = data["threshold_high"]
     if "threshold_low" in data:
-        item.threshold_low = data["threshold_low"]
+        primary.threshold_low = data["threshold_low"]
+    # 清理多余的重复记录
+    for extra in items[1:]:
+        await db.delete(extra)
     if "is_active" in data:
         item.is_active = data["is_active"]
 
@@ -509,19 +539,24 @@ async def update_monitor_item(
 
 @router.delete("/config/monitor/{code}")
 async def delete_monitor_item(code: str, db: AsyncSession = Depends(get_db), request: Request = None):
-    """删除监控标的（软删除）。"""
+    """删除监控标的（软删除）。处理重复记录情况。"""
     uid = _get_user_id(request)
     result = await db.execute(
         select(MonitorItem).where(MonitorItem.code == code, MonitorItem.user_id == uid)
     )
-    item = result.scalar_one_or_none()
-    if not item:
+    items = result.scalars().all()
+    if not items:
         raise HTTPException(status_code=404, detail=f"股票 {code} 不在监控池中")
 
-    item.is_active = False
+    count = 0
+    for item in items:
+        if item.is_active:
+            item.is_active = False
+            count += 1
     await db.commit()
     await _push_config_change("monitor:deleted")
-    return {"status": "ok", "message": f"股票 {code} 已从监控池移除"}
+    extra = f"（清理了 {len(items)} 条重复记录）" if len(items) > 1 else ""
+    return {"status": "ok", "message": f"股票 {code} 已从监控池移除{extra}"}
 
 
 # ─── 数据源管理接口 ──────────────────────────────────
@@ -1221,14 +1256,20 @@ async def sync_monitor_pool(
         code = item_data.get("code", "").strip()
         if not code:
             continue
+        if code in added:
+            continue  # 去重：同一批次中重复的跳过
         existing = await db.execute(
             select(MonitorItem).where(MonitorItem.code == code)
         )
-        existing_item = existing.scalar_one_or_none()
-        if existing_item:
-            existing_item.is_active = True
-            existing_item.name = item_data.get("name", existing_item.name)
-            existing_item.monitor_type = item_data.get("monitor_type", existing_item.monitor_type)
+        existing_items = existing.scalars().all()
+        if existing_items:
+            # 复活第一个，删除多余的
+            primary = existing_items[0]
+            primary.is_active = True
+            primary.name = item_data.get("name", primary.name)
+            primary.monitor_type = item_data.get("monitor_type", primary.monitor_type)
+            for extra in existing_items[1:]:
+                await db.delete(extra)
         else:
             db.add(MonitorItem(
                 code=code,

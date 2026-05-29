@@ -3,7 +3,7 @@
 遵循架构方案 M06 配置模块定义。
 """
 
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, func, Boolean
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, func, Boolean, UniqueConstraint
 from backend.config.database import Base
 
 
@@ -39,6 +39,9 @@ class MonitorItem(Base):
     is_active = Column(Boolean, default=True, comment="是否启用")
     created_at = Column(DateTime, server_default=func.now(), comment="创建时间")
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新时间")
+    __table_args__ = (
+        UniqueConstraint('code', 'user_id', name='uq_monitor_code_user'),
+    )
 
     def __repr__(self):
         return f"<MonitorItem(code={self.code}, user={self.user_id})>"
