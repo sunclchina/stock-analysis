@@ -366,19 +366,23 @@ async def update_watchlist(
 
 @router.delete("/config/watchlist/{code}")
 async def delete_watchlist(code: str, db: AsyncSession = Depends(get_db)):
-    """删除自选股（软删除）。"""
+    """删除自选股（软删除）。兼容重复记录。"""
     result = await db.execute(
         select(WatchlistItem).where(WatchlistItem.code == code)
     )
-    item = result.scalar_one_or_none()
-    if not item:
+    items = result.scalars().all()
+    if not items:
         raise HTTPException(status_code=404, detail=f"股票 {code} 不在自选股中")
 
-    # 软删除
-    item.is_active = False
+    count = 0
+    for item in items:
+        if item.is_active:
+            item.is_active = False
+            count += 1
     await db.commit()
     await _push_config_change("watchlist:deleted")
-    return {"status": "ok", "message": f"股票 {code} 已从自选股中移除"}
+    extra = f"（清理了 {len(items)} 条重复记录）" if len(items) > 1 else ""
+    return {"status": "ok", "message": f"股票 {code} 已从自选股中移除{extra}"}
 
 
 # ─── 监控池接口 ──────────────────────────────────────
