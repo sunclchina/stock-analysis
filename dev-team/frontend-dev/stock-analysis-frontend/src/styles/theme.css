@@ -1,0 +1,88 @@
+/* ===== Light Theme (default) ===== */
+/* 设计规范 v1.1 — 专业金融风格 */
+:root {
+  /* 主色 */
+  --primary-color: #165DFF;
+  --primary-dark: #0E42D2;
+  --primary-gradient: linear-gradient(135deg, #165DFF, #0E42D2);
+  --primary-light: #E8F3FF;
+  --primary-hover: #D1E7FF;
+
+  /* 功能色 */
+  --up-red: #F53F3F;
+  --down-green: #00B42A;
+  --warning-red: #FF4D4F;
+  --normal-green: #00C48C;
+
+  /* 侧栏 */
+  --sidebar-bg: #001529;
+  --sidebar-text: #ffffffa6;
+  --sidebar-hover-bg: rgba(255,255,255,0.08);
+  --sidebar-active-bg: linear-gradient(135deg, #165DFF, #0E42D2);
+  --sidebar-active-text: #ffffff;
+  --sidebar-width-expanded: 240px;
+  --sidebar-width-collapsed: 60px;
+
+  /* 内容区 */
+  --content-bg: #f5f5f5;
+  --content-text: #333333;
+  --content-secondary: #666666;
+  --content-card-bg: #ffffff;
+
+  /* 页眉 */
+  --header-bg: #ffffff;
+  --header-height: 56px;
+  --header-border: 1px solid #E5E6EB;
+  --header-title-color: #333333;
+  --header-breadcrumb: #666666;
+  --header-icon-color: #666666;
+  --header-icon-hover: #165DFF;
+
+  /* 卡片 */
+  --card-radius: 8px;
+  --card-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.12);
+
+  /* 字体 */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-size-title: 18px;
+  --font-size-body: 14px;
+  --font-size-small: 12px;
+
+  /* 主题切换 */
+  --theme-toggle-color: #ffd43b;
+}
+
+/* ===== Dark Theme ===== */
+html.dark {
+  --primary-color: #4C8CFF;
+  --primary-dark: #3670E0;
+  --primary-light: rgba(22, 93, 255, 0.15);
+  --primary-hover: rgba(22, 93, 255, 0.25);
+
+  --up-red: #FF6B6B;
+  --down-green: #00E84A;
+
+  --sidebar-bg: #1E1E2E;
+  --sidebar-text: #ffffffa6;
+  --sidebar-hover-bg: rgba(255,255,255,0.06);
+  --sidebar-active-bg: linear-gradient(135deg, #165DFF, #0E42D2);
+
+  --content-bg: #1E1E2E;
+  --content-text: #FFFFFF;
+  --content-secondary: #AAAAAA;
+  --content-card-bg: #2C2C3A;
+
+  --header-bg: #1E1E2E;
+  --header-border: 1px solid #2C2C3A;
+  --header-title-color: #FFFFFF;
+  --header-breadcrumb: #AAAAAA;
+  --header-icon-color: #AAAAAA;
+  --header-icon-hover: #4C8CFF;
+
+  --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
+
+  --theme-toggle-color: #ffd43b;
+}

@@ -1,0 +1,1312 @@
+// @ts-nocheck
+﻿/**
+ * 自定义夐盘股鏍囩项碉紙v2 鈥?鍥涘ぇ缁村害牌堬級
+ *
+ * 瀵圭収璁捐鏂标。 v2.0 搂4? * - 鍥涘ぇ缁村害条′件堣寖鍥?基本非?技盘术面/共振绫伙級
+ * - 宸︿晶非㈡澘取姌取狅紝姣忕维度︾嫭绔婣ND/OR选昏緫
+ * - 模板保守瓨/鍔犺浇/分犻櫎?一唴缃粯璁ゆā条夸笉取垹闄わ級
+ * - 取充晶缁撴灉灞曠ず堟帓度?瀵煎嚭/鍔犲叆鑷盘?瀛楁映射ve 鈫?CamelCase? * - 缁撴灉瓒呰繃500取彁绀哄鍔犵筛选夋潯价? */
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import {
+  Card, Button, Table, Tag, Space, Select, InputNumber, Input,
+  Tooltip, message, Typography, Empty, Divider, Row, Col, Popconfirm,
+  Modal, Descriptions, Spin, Form, Checkbox, Radio, Collapse, Switch, Alert,
+} from 'antd';
+import {
+  PlayCircleOutlined, PlusOutlined, DeleteOutlined,
+  StarOutlined, StarFilled, UnorderedListOutlined,
+  ReloadOutlined, SortAscendingOutlined,
+  SaveOutlined, FolderOpenOutlined, DownloadOutlined,
+  SettingOutlined, ClearOutlined, ExclamationCircleOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons';
+import { authFetch, getCurrentUser } from '../../services/auth';
+import { useConfigStore } from '../../store/configStore';
+import type { ColumnsType, SortOrder } from 'antd/es/table/interface';
+import type {
+  SelectionResultItem,
+  CustomSelectionDimensions,
+  ScopeDimension,
+  FundamentalDimension,
+  TechnicalDimension,
+  ResonanceDimension,
+  CustomSelectionTemplate,
+} from '../../services/selectionApi';
+import {
+  customSelection,
+  getSavedTemplates,
+  saveTemplate as saveTemplateToLocal,
+  deleteTemplate as deleteTemplateFromLocal,
+  DEFAULT_TEMPLATES,
+} from '../../services/selectionApi';
+import { useHelp } from '../../services/help';
+
+const { Text, Title } = Typography;
+const { Panel } = Collapse;
+
+// K线数据加载
+  const DIM_ICONS: Record<string, string> = {
+  scope: '馃搻',
+  fundamental: '馃搵',
+  technical: '馃搳',
+  resonance: '馃攧',
+};
+
+const DIM_LABELS: Record<string, string> = {
+  scope: "范围筛选",
+  fundamental: "基本面筛选",
+  technical: "技术面筛选",
+  resonance: "共振类筛选",
+};
+
+// K线数据加载
+  const COMMON_INDUSTRIES: string[] = []; // 鍔ㄦ盘佸姞杞斤紝瑙?useEffect
+
+async function fetchIndustryList(): Promise<string[]> {
+  try {
+    const res = await fetch('/api/v1/selection/industries');
+    const data = await res.json();
+    return data?.industries || [];
+  } catch { return []; }
+}
+
+// K线数据加载
+  const LOW_RESONANCE_OPTIONS = [
+  { value: 'low_position', label: '盘稿位庝綅<30%' },
+  { value: 'rsi_lt_30', label: 'RSI<30' },
+  { value: 'boll_lower', label: '市冩灄一嬭建' },
+  { value: 'bottom_break', label: '度曢儴分嗗瀷' },
+  { value: 'neg_deviation_gt_8', label: '负熶箹绂?8%' },
+];
+
+const HIGH_RESONANCE_OPTIONS = [
+  { value: 'high_position', label: '盘稿楂樹綅>70%' },
+  { value: 'rsi_gt_70', label: 'RSI>70' },
+  { value: 'boll_upper', label: '市冩灄一婅建' },
+  { value: 'top_break', label: '项堕儴分嗗瀷' },
+  { value: 'pos_deviation_gt_8', label: '姝ｄ箹绂?8%' },
+];
+
+const MULTI_RESONANCE_OPTIONS = [
+  { value: 'macd_golden', label: 'MACD閲戝弶' },
+  { value: 'ma_bullish', label: '鍧囩嚎澶通ご鎺掑垪' },
+  { value: 'volume_expand', label: '閲忔瘮鈮?.2(鏀鹃量)' },
+  { value: 'rsi_gt_50', label: 'RSI>50' },
+  { value: 'price_above_ma20', label: '绔欑ǔMA20' },
+  { value: 'trend_up', label: '瓒势后戜笂' },
+  { value: 'price_position_30_70', label: '价蜂綅30%-70%' },
+  { value: 'ma20_trend_up', label: 'MA20瓒势后戜笂' },
+];
+
+// ========== 状态盘佺被型?==========
+
+interface DimensionState<T> {
+  config: T;
+  logic: 'and' | 'or';
+  enabled: boolean;
+}
+
+// ========== Component ==========
+
+// K线数据加载
+  const { openHelp } = useHelp();
+  // 鈹盘鈹盘 琛笟分楄〃堝姩鎬佷粠后庣鍔犺浇夆攢鈹盘
+  const [industryOptions, setIndustryOptions] = React.useState<string[]>([]);
+  React.useEffect(() => {
+    fetchIndustryList().then(list => { if (list.length > 0) setIndustryOptions(list); });
+  }, []);
+
+  // K线数据加载
+  const [scopeDim, setScopeDim] = useState<DimensionState<ScopeDimension>>({
+    config: { industries: [], amount: {}, logic: 'and' },
+    logic: 'and',
+    enabled: false,
+  });
+
+  const [fundamentalDim, setFundamentalDim] = useState<DimensionState<FundamentalDimension>>({
+    config: {
+      profit_growth: {},
+      debt_ratio: {},
+      pe: {},
+      pb: {},
+      roe: { min: 15 },
+      operate_cashflow_positive: false,
+      logic: 'and',
+    },
+    logic: 'and',
+    enabled: false,
+  });
+
+  const [technicalDim, setTechnicalDim] = useState<DimensionState<TechnicalDimension>>({
+    config: {
+      ma_type: undefined,
+      price_above_ma: undefined,
+      macd_state: [],
+      volume_ratio: {},
+      rsi_state: undefined,
+      logic: 'and',
+    },
+    logic: 'and',
+    enabled: false,
+  });
+
+  const [resonanceDim, setResonanceDim] = useState<DimensionState<ResonanceDimension>>({
+    config: {
+      low_resonance: [],
+      high_resonance: [],
+      multi_resonance: [],
+      min_match: 2,
+      link_fixed_rules: false,
+      logic: 'and',
+    },
+    logic: 'and',
+    enabled: false,
+  });
+
+  // K线数据加载
+  const [loading, setLoading] = useState(false);
+  // 鍔犺浇缂撳瓨的勮嚜瀹氫箟选股缁撴灉
+  const _uid = getCurrentUser()?.id || '0';
+  const customCacheKey = `selection_custom_${_uid}`;
+  const cachedCustom = localStorage.getItem(customCacheKey);
+  const cachedCustomItems = cachedCustom ? (() => {
+    try { return JSON.parse(cachedCustom).items || []; } catch { return []; }
+  })() : [];
+  const [results, setResults] = useState<SelectionResultItem[]>(cachedCustomItems);
+  const [hasRun, setHasRun] = useState(cachedCustomItems.length > 0);
+  const [detailStock, setDetailStock] = useState<any>(null);
+  const [klineData, setKlineData] = useState<any[]>([]);
+  const [klineLoading, setKlineLoading] = useState(false);
+
+  // K线数据加载
+  useEffect(() => {
+    if (!detailStock) { setKlineData([]); return; }
+    setKlineLoading(true);
+    fetch(`/api/v1/market/kline/${detailStock.code}?count=60`)
+      .then(r => r.json())
+      .then(d => setKlineData(d?.klines || []))
+      .catch(() => setKlineData([]))
+      .finally(() => setKlineLoading(false));
+  }, [detailStock]);
+  const [maxResults, setMaxResults] = useState<number>(100);
+  const [truncated, setTruncated] = useState(false);
+
+  // 模板
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+
+  const { watchlist, addWatchlistItem, removeWatchlistItem } = useConfigStore();
+  const watchlistCodes = useMemo(() => new Set(watchlist.map((w) => w.code)), [watchlist]);
+
+  // K线数据加载
+  const templates = useMemo(() => getSavedTemplates(), []);
+
+  // 鈹盘鈹盘 缁村害选氱敤分标崲 鈹盘鈹盘
+  const toggleDim = useCallback((dim: string, enabled: boolean) => {
+    const setters: Record<string, React.Dispatch<React.SetStateAction<any>>> = {
+      scope: setScopeDim, fundamental: setFundamentalDim,
+      technical: setTechnicalDim, resonance: setResonanceDim,
+    };
+    const prevs: Record<string, DimensionState<any>> = {
+      scope: scopeDim, fundamental: fundamentalDim,
+      technical: technicalDim, resonance: resonanceDim,
+    };
+    const setter = setters[dim];
+    if (setter) {
+      setter((prev: DimensionState<any>) => ({ ...prev, enabled }));
+    }
+  }, [scopeDim, fundamentalDim, technicalDim, resonanceDim]);
+
+  const setDimLogic = useCallback((dim: string, logic: 'and' | 'or') => {
+    const setters: Record<string, React.Dispatch<React.SetStateAction<any>>> = {
+      scope: setScopeDim, fundamental: setFundamentalDim,
+      technical: setTechnicalDim, resonance: setResonanceDim,
+    };
+    const setter = setters[dim];
+    if (setter) {
+      setter((prev: DimensionState<any>) => ({ ...prev, logic }));
+    }
+  }, []);
+
+  // K线数据加载
+  const buildDimensions = useCallback((): CustomSelectionDimensions => {
+    const dims: CustomSelectionDimensions = {};
+
+    if (scopeDim.enabled) {
+      const scope: ScopeDimension = {};
+      if (scopeDim.config.industries && scopeDim.config.industries.length > 0) {
+        scope.industries = scopeDim.config.industries;
+      }
+      if (scopeDim.config.amount?.min !== undefined || scopeDim.config.amount?.max !== undefined) {
+        scope.amount = { ...scopeDim.config.amount };
+      }
+      if (scopeDim.config.market_cap?.min !== undefined || scopeDim.config.market_cap?.max !== undefined) {
+        scope.market_cap = { ...scopeDim.config.market_cap };
+      }
+      if (Object.keys(scope).length > 0) {
+        scope.logic = scopeDim.logic;
+        dims.scope = scope;
+      }
+    }
+
+    if (fundamentalDim.enabled) {
+      const fund: FundamentalDimension = {};
+      if (fundamentalDim.config.profit_growth?.min !== undefined || fundamentalDim.config.profit_growth?.max !== undefined) {
+        fund.profit_growth = { ...fundamentalDim.config.profit_growth };
+      }
+      if (fundamentalDim.config.debt_ratio?.min !== undefined || fundamentalDim.config.debt_ratio?.max !== undefined) {
+        fund.debt_ratio = { ...fundamentalDim.config.debt_ratio };
+      }
+      if (fundamentalDim.config.pe?.min !== undefined || fundamentalDim.config.pe?.max !== undefined) {
+        fund.pe = { ...fundamentalDim.config.pe };
+      }
+      if (fundamentalDim.config.pb?.min !== undefined || fundamentalDim.config.pb?.max !== undefined) {
+        fund.pb = { ...fundamentalDim.config.pb };
+      }
+      if (fundamentalDim.config.roe?.min !== undefined) {
+        fund.roe = { min: fundamentalDim.config.roe.min };
+      }
+      if (fundamentalDim.config.gross_margin?.min !== undefined || fundamentalDim.config.gross_margin?.max !== undefined) {
+        fund.gross_margin = { ...fundamentalDim.config.gross_margin };
+      }
+      if (fundamentalDim.config.operate_cashflow_positive) {
+        fund.operate_cashflow_positive = true;
+      }
+      if (fundamentalDim.config.finance_grade) {
+        fund.finance_grade = fundamentalDim.config.finance_grade;
+      }
+      if (Object.keys(fund).length > 0) {
+        fund.logic = fundamentalDim.logic;
+        dims.fundamental = fund;
+      }
+    }
+
+    // K线数据加载
+  const techConfig = technicalDim.config;
+    const hasTechCond = techConfig.ma_type || techConfig.price_above_ma || 
+      (techConfig.macd_state && techConfig.macd_state.length > 0) ||
+      techConfig.volume_ratio?.min !== undefined || techConfig.volume_ratio?.max !== undefined ||
+      techConfig.turnover_rate?.min !== undefined || techConfig.turnover_rate?.max !== undefined ||
+      techConfig.rsi_state || techConfig.bollinger_position;
+    if (hasTechCond) {
+      const tech: TechnicalDimension = {};
+      if (techConfig.ma_type) tech.ma_type = techConfig.ma_type;
+      if (techConfig.price_above_ma) tech.price_above_ma = techConfig.price_above_ma;
+      if (techConfig.macd_state && techConfig.macd_state.length > 0) {
+        tech.macd_state = [...techConfig.macd_state];
+      }
+      if (techConfig.volume_ratio?.min !== undefined || techConfig.volume_ratio?.max !== undefined) {
+        tech.volume_ratio = { ...techConfig.volume_ratio };
+      }
+      if (techConfig.turnover_rate?.min !== undefined || techConfig.turnover_rate?.max !== undefined) {
+        tech.turnover_rate = { ...techConfig.turnover_rate };
+      }
+      if (techConfig.rsi_state) tech.rsi_state = techConfig.rsi_state;
+      if (techConfig.bollinger_position) tech.bollinger_position = techConfig.bollinger_position;
+      if (Object.keys(tech).length > 0) {
+        tech.logic = technicalDim.logic;
+        dims.technical = tech;
+      }
+    }
+
+    if (resonanceDim.enabled) {
+      const res: ResonanceDimension = {};
+      if (resonanceDim.config.low_resonance && resonanceDim.config.low_resonance.length > 0) {
+        res.low_resonance = [...resonanceDim.config.low_resonance];
+      }
+      if (resonanceDim.config.high_resonance && resonanceDim.config.high_resonance.length > 0) {
+        res.high_resonance = [...resonanceDim.config.high_resonance];
+      }
+      if (resonanceDim.config.multi_resonance && resonanceDim.config.multi_resonance.length > 0) {
+        res.multi_resonance = [...resonanceDim.config.multi_resonance];
+      }
+      if (resonanceDim.config.min_match !== undefined) {
+        res.min_match = resonanceDim.config.min_match;
+      }
+      if (resonanceDim.config.link_fixed_rules) {
+        res.link_fixed_rules = true;
+      }
+      if (Object.keys(res).length > 0) {
+        res.logic = resonanceDim.logic;
+        dims.resonance = res;
+      }
+    }
+
+    return dims;
+  }, [scopeDim, fundamentalDim, technicalDim, resonanceDim]);
+
+  // K线数据加载
+  const handleRun = useCallback(async () => {
+    const dims = buildDimensions();
+    const dimCount = Object.keys(dims).length;
+    if (dimCount === 0) {
+      message.warning('请至少开启并配置一个筛选维度');
+      return;
+    }
+
+    setLoading(true);
+    setTruncated(false);
+    try {
+      const res = await customSelection(dims, maxResults);
+      const rawItems: any[] = res?.items || [];
+      const items: SelectionResultItem[] = rawItems.map((item: any) => ({
+        rank: item.rank,
+        code: item.code,
+        name: item.name,
+        industry: item.industry || '',
+        trendColor: item.trend_color,
+        resonanceStatus: item.resonance_status,
+        trendStrength: item.trend_strength || 0,
+        riskScore: item.risk_score || 50,
+        riskLevel: item.risk_level || 'medium',
+        financeGrade: item.finance_grade || 'B',
+        compositeScore: item.total_score || 0,
+        operationAdvice: item.trade_advice || '',
+        addedToWatchlist: watchlistCodes.has(item.code),
+      }));
+      setResults(items);
+      // 缂撳瓨术自定义夐盘股缁撴灉
+      const ccKey = `selection_custom_${getCurrentUser()?.id || '0'}`;
+      localStorage.setItem(ccKey, JSON.stringify({
+        items, truncated: res.truncated, total_count: res.total_count,
+      }));
+      setHasRun(true);
+
+      if (res.truncated) {
+        setTruncated(true);
+        message.warning(`缁撴灉瓒呰繃500取凡成柇屽缓璁鍔犵筛选夋潯价禶);
+      } else if (items.length === 0) {
+        message.info('提示文本')
+      } else if (items.length >= 200) {
+        message.info(`选夊嚭 ${items.length} 取紝寤鸿澧炲姞鏇村条′件缂╁皬范围`);
+      } else {
+        message.success(`选股瀹屾垚屽叡 ${items.length} 取绁ㄩ盘氳繃筛盘塦);
+      }
+    } catch (err) {
+      console.error('自定义夐盘股澶辫触:', err);
+      message.error('提示文本')
+      setResults([]);
+      setHasRun(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [buildDimensions, maxResults, watchlistCodes]);
+
+  // 鈹盘鈹盘 鑷盘股分标崲 鈹盘鈹盘
+
+  const handleWatchlistToggle = useCallback(
+    async (item: SelectionResultItem) => {
+      if (item.addedToWatchlist) {
+        try {
+          await authFetch(`/api/v1/config/watchlist/${item.code}`, { method: 'DELETE' });
+          removeWatchlistItem(item.code);
+          setResults((prev) => prev.map((r) => r.code === item.code ? { ...r, addedToWatchlist: false } : r));
+          message.success(`宸插皢 ${item.name} 绉诲嚭鑷盘股`);
+        } catch { message.error('绉诲嚭鑷盘股澶辫触'); }
+      } else {
+        try {
+          await authFetch('/api/v1/config/watchlist', {
+            method: 'POST',
+            body: JSON.stringify({ code: item.code, name: item.name }),
+          });
+          addWatchlistItem({ code: item.code, name: item.name, addedAt: new Date().toISOString() });
+          setResults((prev) => prev.map((r) => r.code === item.code ? { ...r, addedToWatchlist: true } : r));
+          message.success(`宸插皢 ${item.name} 鍔犲叆鑷盘股`);
+        } catch { message.error('鍔犲叆鑷盘股澶辫触'); }
+      }
+    },
+    [addWatchlistItem, removeWatchlistItem]
+  );
+
+  // K线数据加载
+  const handleExport = useCallback(() => {
+    if (results.length === 0) { message.warning('提示文本')
+    const headers = ['鎺掑悕', '价ｇ爜', '后置О', '琛笟', '瓒势额滆壊', '共振状态盘?, '瓒势哄害', '风险评分', '风险筛骇', '财务筛骇', '缁煎寰楀垎', '鎿嶄綔寤鸿'];'
+    const rows = results.map((r) => [r.rank, r.code, r.name, r.industry, r.trendColor, r.resonanceStatus || '-', r.trendStrength, r.riskScore, r.riskLevel, r.financeGrade, r.compositeScore, r.operationAdvice]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `自定义夐盘股缁撴灉_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    message.success('瀵煎嚭成愬姛');
+  }, [results]);
+
+  // K线数据加载
+  const handleLoadTemplate = useCallback((tmpl: CustomSelectionTemplate) => {
+    const d = tmpl.dimensions;
+    if (!d) { message.warning('提示文本')
+
+    if (d.scope) {
+      setScopeDim({
+        config: {
+          industries: d.scope.industries || [],
+          amount: d.scope.amount || {},
+          market_cap: d.scope.market_cap || {},
+        },
+        logic: d.scope.logic || 'and',
+        enabled: Object.keys(d.scope).some(k => k !== 'logic' && d.scope![k as keyof ScopeDimension] !== undefined),
+      });
+    } else {
+      setScopeDim(prev => ({ ...prev, enabled: false }));
+    }
+
+    if (d.fundamental) {
+      setFundamentalDim({
+        config: {
+          profit_growth: d.fundamental.profit_growth || {},
+          debt_ratio: d.fundamental.debt_ratio || {},
+          pe: d.fundamental.pe || {},
+          pb: d.fundamental.pb || {},
+          roe: d.fundamental.roe || { min: 15 },
+          gross_margin: d.fundamental.gross_margin || {},
+          operate_cashflow_positive: d.fundamental.operate_cashflow_positive || false,
+          finance_grade: d.fundamental.finance_grade || '',
+        },
+        logic: d.fundamental.logic || 'and',
+        enabled: Object.keys(d.fundamental).some(k => k !== 'logic'),
+      });
+    } else {
+      setFundamentalDim(prev => ({ ...prev, enabled: false }));
+    }
+
+    if (d.technical) {
+      setTechnicalDim({
+        config: {
+          ma_type: d.technical.ma_type || undefined,
+          price_above_ma: d.technical.price_above_ma || undefined,
+          macd_state: d.technical.macd_state || [],
+          volume_ratio: d.technical.volume_ratio || {},
+          turnover_rate: d.technical.turnover_rate || {},
+          rsi_state: d.technical.rsi_state || undefined,
+          bollinger_position: d.technical.bollinger_position || undefined,
+        },
+        logic: d.technical.logic || 'and',
+        enabled: Object.keys(d.technical).some(k => k !== 'logic'),
+      });
+    } else {
+      setTechnicalDim(prev => ({ ...prev, enabled: false }));
+    }
+
+    if (d.resonance) {
+      setResonanceDim({
+        config: {
+          low_resonance: d.resonance.low_resonance || [],
+          high_resonance: d.resonance.high_resonance || [],
+          multi_resonance: d.resonance.multi_resonance || [],
+          min_match: d.resonance.min_match ?? 2,
+          link_fixed_rules: d.resonance.link_fixed_rules || false,
+        },
+        logic: d.resonance.logic || 'and',
+        enabled: Object.keys(d.resonance).some(k => k !== 'logic'),
+      });
+    } else {
+      setResonanceDim(prev => ({ ...prev, enabled: false }));
+    }
+
+    if (tmpl.max_results) setMaxResults(tmpl.max_results);
+    setTemplateModalOpen(false);
+    message.success(`宸插姞杞芥ā条? ${tmpl.name}`);
+  }, []);
+
+  // K线数据加载
+  const handleSaveTemplate = useCallback(() => {
+    if (!templateName.trim()) { message.warning('提示文本')
+    const dims = buildDimensions();
+    if (Object.keys(dims).length === 0) { message.warning('提示文本')
+
+    const newTmpl: CustomSelectionTemplate = {
+      id: `custom_${Date.now()}`,
+      name: templateName.trim(),
+      dimensions: dims,
+      max_results: maxResults,
+      createdAt: new Date().toISOString(),
+    };
+    saveTemplateToLocal(newTmpl);
+    message.success('提示文本')
+    setSaveModalOpen(false);
+    setTemplateName('');
+  }, [templateName, maxResults, buildDimensions]);
+
+  // K线数据加载
+  const handleDeleteTemplate = useCallback((id: string) => {
+    deleteTemplateFromLocal(id);
+    message.success('提示文本')
+  }, []);
+
+  // 鈹盘鈹盘 閲置 鈹盘鈹盘
+  const handleReset = useCallback(() => {
+    setScopeDim({ config: { industries: [], amount: {} }, logic: 'and', enabled: false });
+    setFundamentalDim({
+      config: { profit_growth: {}, debt_ratio: {}, pe: {}, pb: {}, roe: { min: 15 }, operate_cashflow_positive: false, gross_margin: {}, finance_grade: '' },
+      logic: 'and', enabled: false,
+    });
+    setTechnicalDim({
+      config: { ma_type: undefined, price_above_ma: undefined, macd_state: [], volume_ratio: {}, turnover_rate: {}, rsi_state: undefined, bollinger_position: undefined },
+      logic: 'and', enabled: false,
+    });
+    setResonanceDim({
+      config: { low_resonance: [], high_resonance: [], multi_resonance: [], min_match: 2, link_fixed_rules: false },
+      logic: 'and', enabled: false,
+    });
+    setResults([]);
+    setHasRun(false);
+    setTruncated(false);
+    message.info('提示文本')
+  }, []);
+
+  // K线数据加载
+  const updateScope = useCallback((patch: Partial<ScopeDimension>) => {
+    setScopeDim(prev => ({ ...prev, config: { ...prev.config, ...patch } }));
+  }, []);
+  const updateFundamental = useCallback((patch: Partial<FundamentalDimension>) => {
+    setFundamentalDim(prev => ({ ...prev, config: { ...prev.config, ...patch } }));
+  }, []);
+  const updateTechnical = useCallback((patch: Partial<TechnicalDimension>) => {
+    setTechnicalDim(prev => ({ ...prev, config: { ...prev.config, ...patch } }));
+  }, []);
+  const updateResonance = useCallback((patch: Partial<ResonanceDimension>) => {
+    setResonanceDim(prev => ({ ...prev, config: { ...prev.config, ...patch } }));
+  }, []);
+
+  // K线数据加载
+  const columns: ColumnsType<SelectionResultItem> = [
+    { title: '鎺掑悕', dataIndex: 'rank', key: 'rank', width: 60,
+      sorter: (a, b) => a.rank - b.rank,
+      render: (rank: number) => <Text strong style={{ color: rank <= 3 ? '#ff4d4f' : undefined }}>{rank}</Text>,
+    },
+    { title: '价ｇ爜', dataIndex: 'code', key: 'code', width: 100,
+      render: (code: string, record: any) => <a onClick={() => setDetailStock(record)} style={{ fontSize: 14, fontWeight: 700 }}>{code}</a>,
+    },
+    { title: '后置О', dataIndex: 'name', key: 'name', width: 110,
+      render: (name: string, record: any) => <a onClick={() => setDetailStock(record)} style={{ fontWeight: 600, fontSize: 13 }}>{name}</a>,
+    },
+    { title: '琛笟', dataIndex: 'industry', key: 'industry', width: 100,
+      render: (industry: string) => industry ? <Tag style={{ fontSize: 11 }}>{industry}</Tag> : <Text type="secondary">-</Text>,
+    },
+    { title: '瓒势', dataIndex: 'trendColor', key: 'trendColor', width: 55,
+      render: (color: string) => {
+        const m: Record<string, string> = { red: '#cf1322', green: '#389e0d', yellow: '#faad14', gray: '#8c8c8c', blue: '#1677ff' };
+        return <Tooltip title={{ red: '一涨', green: '一嬭穼', blue: '取嶈浆', yellow: '闇囪崱', gray: '术煡' }[color] || color}>
+          <div style={{ width: 14, height: 14, borderRadius: '50%', background: m[color] || '#8c8c8c', display: 'inline-block' }} />
+        </Tooltip>;
+      },
+    },
+    { title: '共振状态盘?, dataIndex: 'resonanceStatus', key: 'resonanceStatus', width: 90,'
+      render: (status: string) => status ? <Tag color={status.includes('澶通ご') ? 'green' : status.includes('绌哄ご') ? 'red' : 'default'} style={{ fontSize: 11 }}>{status}</Tag> : <Text type="secondary">-</Text>,
+    },
+    { title: '瓒势哄害', dataIndex: 'trendStrength', key: 'trendStrength', width: 85,
+      sorter: (a, b) => a.trendStrength - b.trendStrength,
+      render: (val: number) => <Text style={{ color: val >= 70 ? '#52c41a' : val >= 50 ? '#faad14' : '#8c8c8c' }}>{val}</Text>,
+    },
+    { title: '风险评分', dataIndex: 'riskScore', key: 'riskScore', width: 85,
+      sorter: (a, b) => a.riskScore - b.riskScore,
+      render: (val: number) => <Text style={{ color: val <= 30 ? '#52c41a' : val <= 60 ? '#faad14' : '#ff4d4f' }}>{val}</Text>,
+    },
+    { title: '风险筛骇', dataIndex: 'riskLevel', key: 'riskLevel', width: 75,
+      render: (level: string) => {
+        const lm: Record<string, string> = { low: '#52c41a', medium: '#faad14', high: '#ff4d4f' };
+        const ll: Record<string, string> = { low: '位庨闄?, medium: '一闄?, high: '楂橀闄? };'
+        return <Tag color={lm[level]} style={{ fontSize: 11 }}>{ll[level]}</Tag>;
+      },
+    },
+    { title: '财务筛骇', dataIndex: 'financeGrade', key: 'financeGrade', width: 75,
+      render: (grade: string) => {
+        const gm: Record<string, string> = { A: '#52c41a', B: '#1677ff', C: '#faad14', D: '#ff4d4f' };
+        return <Tag color={gm[grade]}>{grade}</Tag>;
+      },
+    },
+    { title: '缁煎寰楀垎', dataIndex: 'compositeScore', key: 'compositeScore', width: 90,
+      sorter: (a, b) => a.compositeScore - b.compositeScore,
+      defaultSortOrder: 'descend' as SortOrder,
+      render: (val: number) => (
+        <Text strong style={{ color: val >= 90 ? '#52c41a' : val >= 85 ? '#1677ff' : val >= 70 ? '#faad14' : '#8c8c8c' }}>
+          {val}
+        </Text>
+      ),
+    },
+    { title: '鎿嶄綔寤鸿', dataIndex: 'operationAdvice', key: 'operationAdvice', width: 100,
+      render: (advice: string) => <span style={{ fontSize: 12 }}>{advice}</span>,
+    },
+    { title: '鑷盘?, key: 'action', width: 70, fixed: 'right' as const,'
+      render: (_: unknown, record: SelectionResultItem) => (
+        <Tooltip title={record.addedToWatchlist ? '绉诲嚭鑷盘股' : '鍔犲叆鑷盘股'}>
+          <Button type="text" size="small"
+            icon={record.addedToWatchlist ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+            onClick={() => handleWatchlistToggle(record)}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
+
+  // K线数据加载
+  const renderScopePanel = () => (
+    <div style={{ padding: '8px 4px' }}>
+      {/* 琛笟澶氶盘?*/}
+      <div style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>琛笟</Text>
+        <Select
+          mode="multiple" size="small" style={{ width: '100%' }}
+          placeholder="选夋嫨琛笟堝彲澶氶盘夛級"
+          value={scopeDim.config.industries}
+          onChange={(v: string[]) => updateScope({ industries: v })}
+          filterOption={(input, option) =>
+            ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+          }
+          options={industryOptions.length > 0 ? industryOptions.map(i => ({ value: i, label: i })) : []}
+          loading={industryOptions.length === 0}
+          maxTagCount={3}
+        />
+      </div>
+      {/* 成愪交额守尯闂?*/}
+      <div style={{ marginBottom: 8 }}>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>成愪交额濓紙一囧厓?/Text>
+        <Space size={4}>
+          <InputNumber size="small" style={{ width: 80 }} placeholder="术盘灏?
+            value={scopeDim.config.amount?.min}
+            onChange={(v) => updateScope({ amount: { ...scopeDim.config.amount, min: v ?? undefined } })}
+            min={0}
+          />
+          <Text type="secondary">~</Text>
+          <InputNumber size="small" style={{ width: 80 }} placeholder="术盘澶?
+            value={scopeDim.config.amount?.max}
+            onChange={(v) => updateScope({ amount: { ...scopeDim.config.amount, max: v ?? undefined } })}
+            min={0}
+          />
+        </Space>
+      </div>
+      {/* 鎬诲市值煎尯闂?*/}
+      <div>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>鎬诲市值硷紙浜垮厓?/Text>
+        <Space size={4}>
+          <InputNumber size="small" style={{ width: 80 }} placeholder="术盘灏?
+            value={scopeDim.config.market_cap?.min}
+            onChange={(v) => updateScope({ market_cap: { ...scopeDim.config.market_cap, min: v ?? undefined } })}
+            min={0}
+          />
+          <Text type="secondary">~</Text>
+          <InputNumber size="small" style={{ width: 80 }} placeholder="术盘澶?
+            value={scopeDim.config.market_cap?.max}
+            onChange={(v) => updateScope({ market_cap: { ...scopeDim.config.market_cap, max: v ?? undefined } })}
+            min={0}
+          />
+        </Space>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <Text type="secondary" style={{ fontSize: 11 }}>缁村害鍐呴盘昏緫欰ND堝浐瀹氾級</Text>
+      </div>
+    </div>
+  );
+
+  const renderFundamentalPanel = () => (
+    <div style={{ padding: '8px 4px' }}>
+      <Row gutter={[8, 10]}>
+        <Col span={12}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 2 }}>ROE 鈮?(%)</Text>
+          <InputNumber size="small" style={{ width: '100%' }} placeholder="鈮?
+            value={fundamentalDim.config.roe?.min}
+            onChange={(v) => updateFundamental({ roe: { min: v ?? 15 } })}
+            min={0} max={100}
+          />
+        </Col>
+        <Col span={12}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 2 }}>净盘分╂鼎澧為暱 鈮?(%)</Text>
+          <InputNumber size="small" style={{ width: '100%' }} placeholder="鈮?
+            value={fundamentalDim.config.profit_growth?.min}
+            onChange={(v) => updateFundamental({ profit_growth: { ...fundamentalDim.config.profit_growth, min: v ?? undefined } })}
+          />
+        </Col>
+        <Col span={12}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 2 }}>璧勪骇负盘虹巼 (%)</Text>
+          <Space size={4} style={{ width: '100%' }}>
+            <InputNumber size="small" style={{ width: '47%' }} placeholder="术盘灏?
+              value={fundamentalDim.config.debt_ratio?.min}
+              onChange={(v) => updateFundamental({ debt_ratio: { ...fundamentalDim.config.debt_ratio, min: v ?? undefined } })}
+            />
+            <Text type="secondary">~</Text>
+            <InputNumber size="small" style={{ width: '47%' }} placeholder="术盘澶?
+              value={fundamentalDim.config.debt_ratio?.max}
+              onChange={(v) => updateFundamental({ debt_ratio: { ...fundamentalDim.config.debt_ratio, max: v ?? undefined } })}
+            />
+          </Space>
+        </Col>
+        <Col span={12}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 2 }}>市傜泩鐜?PE)</Text>
+          <Space size={4} style={{ width: '100%' }}>
+            <InputNumber size="small" style={{ width: '47%' }} placeholder="术盘灏?
+              value={fundamentalDim.config.pe?.min}
+              onChange={(v) => updateFundamental({ pe: { ...fundamentalDim.config.pe, min: v ?? undefined } })}
+            />
+            <Text type="secondary">~</Text>
+            <InputNumber size="small" style={{ width: '47%' }} placeholder="术盘澶?
+              value={fundamentalDim.config.pe?.max}
+              onChange={(v) => updateFundamental({ pe: { ...fundamentalDim.config.pe, max: v ?? undefined } })}
+            />
+          </Space>
+        </Col>
+        <Col span={12}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 2 }}>姣涘埄鐜?(%)</Text>
+          <Space size={4} style={{ width: '100%' }}>
+            <InputNumber size="small" style={{ width: '47%' }} placeholder="术盘灏?
+              value={fundamentalDim.config.gross_margin?.min}
+              onChange={(v) => updateFundamental({ gross_margin: { ...fundamentalDim.config.gross_margin, min: v ?? undefined } })}
+            />
+            <Text type="secondary">~</Text>
+            <InputNumber size="small" style={{ width: '47%' }} placeholder="术盘澶?
+              value={fundamentalDim.config.gross_margin?.max}
+              onChange={(v) => updateFundamental({ gross_margin: { ...fundamentalDim.config.gross_margin, max: v ?? undefined } })}
+            />
+          </Space>
+        </Col>
+        <Col span={12}>
+          <div style={{ marginTop: 18 }}>
+            <Checkbox
+              checked={fundamentalDim.config.operate_cashflow_positive}
+              onChange={(e) => updateFundamental({ operate_cashflow_positive: e.target.checked })}
+            >
+              <Text style={{ fontSize: 12 }}>缁忚惀现金流?&gt; 0</Text>
+            </Checkbox>
+          </div>
+        </Col>
+        <Col span={24}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 2 }}>财务鑱斿姩</Text>
+          <Select size="small" style={{ width: '100%' }}
+            placeholder="一嶈仈鍔?
+            value={fundamentalDim.config.finance_grade || undefined}
+            onChange={(v) => updateFundamental({ finance_grade: v || '' })}
+            allowClear
+            options={[
+              { value: 'green', label: '馃煝 安全堟棤合父? },'
+              { value: 'yellow', label: '馃煛 榛勮壊额勮' },
+            ]}
+          />
+        </Col>
+      </Row>
+    </div>
+  );
+
+  const renderTechnicalPanel = () => (
+    <div style={{ padding: '8px 4px' }}>
+      {/* 鍧囩嚎鎺掑垪 */}
+      <div style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>鍧囩嚎鎺掑垪</Text>
+        <Radio.Group
+          size="small" value={technicalDim.config.ma_type}
+          onChange={(e) => updateTechnical({ ma_type: e.target.value })}
+        >
+          <Radio.Button value="bullish">澶通ご</Radio.Button>
+          <Radio.Button value="bearish">绌哄ご</Radio.Button>
+          <Radio.Button value="entanglement">缂犵粫</Radio.Button>
+          <Radio.Button value={undefined}>一嶉檺</Radio.Button>
+        </Radio.Group>
+      </div>
+
+      {/* MACD状态盘?*/}
+      <div style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>MACD状态盘?/Text>
+        <Checkbox.Group
+          value={technicalDim.config.macd_state}
+          onChange={(v: any[]) => updateTechnical({ macd_state: v })}
+        >
+          <Space size={4} wrap>
+            <Checkbox value="golden"><Text style={{ fontSize: 12 }}>閲戝弶</Text></Checkbox>
+            <Checkbox value="death"><Text style={{ fontSize: 12 }}>姝诲弶</Text></Checkbox>
+            <Checkbox value="red_expand"><Text style={{ fontSize: 12 }}>绾㈡煴鏀惧ぇ</Text></Checkbox>
+          </Space>
+        </Checkbox.Group>
+      </div>
+
+      {/* 閲忔瘮 */}
+      <div style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>閲忔瘮</Text>
+        <Space size={4}>
+          <InputNumber size="small" style={{ width: 70 }} placeholder="术盘灏?
+            value={technicalDim.config.volume_ratio?.min}
+            onChange={(v) => updateTechnical({ volume_ratio: { ...technicalDim.config.volume_ratio, min: v ?? undefined } })}
+            min={0} step={0.1}
+          />
+          <Text type="secondary">~</Text>
+          <InputNumber size="small" style={{ width: 70 }} placeholder="术盘澶?
+            value={technicalDim.config.volume_ratio?.max}
+            onChange={(v) => updateTechnical({ volume_ratio: { ...technicalDim.config.volume_ratio, max: v ?? undefined } })}
+            min={0} step={0.1}
+          />
+        </Space>
+      </div>
+
+      {/* 鎹㈡墜鐜?*/}
+      <div style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>鎹㈡墜鐜?(%)</Text>
+        <Space size={4}>
+          <InputNumber size="small" style={{ width: 70 }} placeholder="术盘灏?
+            value={technicalDim.config.turnover_rate?.min}
+            onChange={(v) => updateTechnical({ turnover_rate: { ...technicalDim.config.turnover_rate, min: v ?? undefined } })}
+            min={0} step={0.1}
+          />
+          <Text type="secondary">~</Text>
+          <InputNumber size="small" style={{ width: 70 }} placeholder="术盘澶?
+            value={technicalDim.config.turnover_rate?.max}
+            onChange={(v) => updateTechnical({ turnover_rate: { ...technicalDim.config.turnover_rate, max: v ?? undefined } })}
+            min={0} step={0.1}
+          />
+        </Space>
+      </div>
+
+      {/* RSI */}
+      <div style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>RSI条′件</Text>
+        <Radio.Group
+          size="small" value={technicalDim.config.rsi_state}
+          onChange={(e) => updateTechnical({ rsi_state: e.target.value })}
+        >
+          <Radio.Button value="gt_70">瓒呬拱(&gt;70)</Radio.Button>
+          <Radio.Button value="lt_30">瓒呭崠(&lt;30)</Radio.Button>
+          <Radio.Button value="gt_50">&gt;50</Radio.Button>
+          <Radio.Button value={undefined}>一嶉檺</Radio.Button>
+        </Radio.Group>
+      </div>
+
+      {/* 市冩灄市?*/}
+      <div>
+        <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>市冩灄市︿綅缃?/Text>
+        <Radio.Group
+          size="small" value={technicalDim.config.bollinger_position}
+          onChange={(e) => updateTechnical({ bollinger_position: e.target.value })}
+        >
+          <Radio.Button value="upper">一婅建</Radio.Button>
+          <Radio.Button value="middle">一建</Radio.Button>
+          <Radio.Button value="lower">一嬭建</Radio.Button>
+          <Radio.Button value={undefined}>一嶉檺</Radio.Button>
+        </Radio.Group>
+      </div>
+    </div>
+  );
+
+  const renderResonancePanel = () => {
+    const res = resonanceDim.config;
+    const multiCount = res.multi_resonance?.length || 0;
+    const maxMatch = Math.min(multiCount, res.min_match ?? 2);
+    return (
+      <div style={{ padding: '8px 4px' }}>
+        {/* 位庝綅共振 */}
+        <div style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>位庝綅共振条′件</Text>
+          <Checkbox.Group
+            value={res.low_resonance}
+            onChange={(v: any[]) => updateResonance({ low_resonance: v })}
+          >
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              {LOW_RESONANCE_OPTIONS.map(opt => (
+                <Checkbox key={opt.value} value={opt.value}>
+                  <Text style={{ fontSize: 12 }}>{opt.label}</Text>
+                </Checkbox>
+              ))}
+            </Space>
+          </Checkbox.Group>
+        </div>
+
+        <Divider style={{ margin: '8px 0' }} />
+
+        {/* 楂樹綅共振 */}
+        <div style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>楂樹綅共振条′件</Text>
+          <Checkbox.Group
+            value={res.high_resonance}
+            onChange={(v: any[]) => updateResonance({ high_resonance: v })}
+          >
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              {HIGH_RESONANCE_OPTIONS.map(opt => (
+                <Checkbox key={opt.value} value={opt.value}>
+                  <Text style={{ fontSize: 12 }}>{opt.label}</Text>
+                </Checkbox>
+              ))}
+            </Space>
+          </Checkbox.Group>
+        </div>
+
+        <Divider style={{ margin: '8px 0' }} />
+
+        {/* 澶氭寚鏍囧叡标?*/}
+        <div style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>澶氭寚鏍囧叡标潯价?/Text>
+          <Checkbox.Group
+            value={res.multi_resonance}
+            onChange={(v: any[]) => updateResonance({ multi_resonance: v })}
+          >
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              {MULTI_RESONANCE_OPTIONS.map(opt => (
+                <Checkbox key={opt.value} value={opt.value}>
+                  <Text style={{ fontSize: 12 }}>{opt.label}</Text>
+                </Checkbox>
+              ))}
+            </Space>
+          </Checkbox.Group>
+        </div>
+
+        {/* 鑷冲皯婊¤冻N项?*/}
+        <div style={{ marginBottom: 8 }}>
+          <Text style={{ fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }}>
+            闇盘后屾椂婊¤冻鑷冲皯
+            <Tag style={{ margin: '0 4px', fontSize: 11 }}>N={maxMatch}</Tag>
+            项癸紙术盘澶歿multiCount}项癸級
+          </Text>
+          <InputNumber
+            size="small" style={{ width: 80 }}
+            min={1} max={Math.max(1, multiCount)}
+            value={maxMatch}
+            onChange={(v) => updateResonance({ min_match: v ?? 1 })}
+          />
+        </div>
+
+        {/* 鑱斿姩固定规则 */}
+        <div>
+          <Checkbox
+            checked={res.link_fixed_rules}
+            onChange={(e) => updateResonance({ link_fixed_rules: e.target.checked })}
+          >
+            <Text style={{ fontSize: 12 }}>鑱斿姩固定规则共振位撶郴堣秼鍔夸笂娑?共振鈮?项癸級</Text>
+          </Checkbox>
+        </div>
+      </div>
+    );
+  };
+
+  // K线数据加载
+  const DimensionPanel = ({
+    dimKey,
+    title,
+    children,
+    state,
+  }: {
+    dimKey: string;
+    title: string;
+    children: React.ReactNode;
+    state: DimensionState<any>;
+  }) => (
+    <Card
+      size="small"
+      style={{
+        marginBottom: 8,
+        borderRadius: 6,
+        border: state.enabled ? '1px solid #1677ff' : '1px solid #f0f0f0',
+      }}
+      bodyStyle={{ padding: state.enabled ? '8px 12px' : '4px 12px' }}
+      title={
+        <Space style={{ width: '100%' }}>
+          <span>{DIM_ICONS[dimKey]}</span>
+          <Text strong style={{ fontSize: 13 }}>{title}</Text>
+          {state.enabled && <Tag color="blue" style={{ fontSize: 10, marginLeft: 4 }}>宸插启鐢?/Tag>}
+        </Space>
+      }
+      extra={
+        <Space size={4}>
+          {dimKey !== 'scope' && (
+            <Select
+              size="small" style={{ width: 65 }}
+              value={state.logic}
+              onChange={(v) => setDimLogic(dimKey, v)}
+            >
+              <Select.Option value="and">AND</Select.Option>
+              <Select.Option value="or">OR</Select.Option>
+            </Select>
+          )}
+          <Switch
+            size="small" checked={state.enabled}
+            onChange={(v) => toggleDim(dimKey, v)}
+            checkedChildren="盘" unCheckedChildren="鍏?
+          />
+        </Space>
+      }
+    >
+      {state.enabled ? children : (
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', textAlign: 'center', padding: '4px 0' }}>
+          鐐瑰嚮盘鍏冲启鐢ㄦ缁村害
+        </Text>
+      )}
+    </Card>
+  );
+
+  // K线数据加载
+  return (
+    <div style={{ padding: '16px 0' }}>
+      {/* 项堕儴宸ュ叿鏍?*/}
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <Space>
+          <Button size="small" icon={<FolderOpenOutlined />} onClick={() => setTemplateModalOpen(true)}>
+            鍔犺浇模板
+          </Button>
+          <Button size="small" icon={<SaveOutlined />} onClick={() => setSaveModalOpen(true)}>
+            保守瓨录撳墠条′件
+          </Button>
+          <Button size="small" icon={<ClearOutlined />} onClick={handleReset}>
+            閲置
+          </Button>
+          <Tooltip title="查ョ湅市姪鏂标。">
+            <Button type="text" size="small" icon={<QuestionCircleOutlined style={{ fontSize: 16, color: '#1677ff' }} />}
+              onClick={() => openHelp('custom-selection')} />
+          </Tooltip>
+        </Space>
+        <Space>
+          <Text style={{ fontSize: 12 }}>一婇檺?/Text>
+          <InputNumber size="small" min={1} max={500} value={maxResults}
+            onChange={(v) => setMaxResults(v ?? 100)} style={{ width: 65 }}
+          />
+          <Text type="secondary" style={{ fontSize: 12 }}>取?/Text>
+          <Button
+            type="primary" icon={<PlayCircleOutlined />}
+            onClick={handleRun} loading={loading}
+            style={{ minWidth: 120 }}
+          >
+            一盘閿筛选?          </Button>
+        </Space>
+      </div>
+
+      {/* 成柇璀﹀憡 */}
+      {truncated && (
+        <Alert
+          message="缁撴灉瓒呰繃500取凡成柇"
+          description="录撳墠条′件缁勫筛盘粨鏋滆繃澶氾紝寤鸿澧炲姞鏇村条′件堝琛笟銆佸熀术面ROE銆佹妧术面鍧囩嚎筛夛級价ョ缉灏忚寖鍥?
+          type="warning" showIcon icon={<ExclamationCircleOutlined />}
+          style={{ marginBottom: 12, borderRadius: 6 }}
+          closable
+          onClose={() => setTruncated(false)}
+        />
+      )}
+
+      <Row gutter={12}>
+        {/* 宸︿晶通洓澶х维度﹂面条?*/}
+        <Col xs={24} md={10} lg={9}>
+          <div style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 4 }}>
+            <DimensionPanel dimKey="scope" title="范围筛盘? state={scopeDim}>
+              {renderScopePanel()}
+            </DimensionPanel>
+            <DimensionPanel dimKey="fundamental" title="基本非㈢筛选? state={fundamentalDim}>
+              {renderFundamentalPanel()}
+            </DimensionPanel>
+            <DimensionPanel dimKey="technical" title="技盘术面筛盘? state={technicalDim}>
+              {renderTechnicalPanel()}
+            </DimensionPanel>
+            <DimensionPanel dimKey="resonance" title="共振类筛选 state={resonanceDim}>
+              {renderResonancePanel()}
+            </DimensionPanel>
+          </div>
+          <div style={{ marginTop: 8, textAlign: 'center' }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              缁村害闂撮盘昏緫一?AND堟墍术夊启鐢ㄧ维度﹀悓鏃舵弧瓒筹級
+            </Text>
+          </div>
+        </Col>
+
+        {/* 取充晶氱粨鏋滃睍绀?*/}
+        <Col xs={24} md={14} lg={15}>
+          <Card
+            size="small" style={{ borderRadius: 8 }}
+            bodyStyle={{ padding: hasRun ? 0 : '24px' }}
+            title={
+              <Space>
+                <span>选股缁撴灉</span>
+                {hasRun && <Tag color="blue">{results.length} 取?/Tag>}
+              </Space>
+            }
+            extra={
+              hasRun ? (
+                <Space>
+                  <SortAscendingOutlined style={{ opacity: 0.45 }} />
+                  <Button size="small" icon={<DownloadOutlined />} onClick={handleExport}>
+                    瀵煎嚭CSV
+                  </Button>
+                  <Button size="small" icon={<ReloadOutlined />} onClick={handleRun} loading={loading}>
+                    閲嶆柊选股
+                  </Button>
+                </Space>
+              ) : null
+            }
+          >
+            {!hasRun ? (
+              <Empty description="璇峰湪宸︿晶配置筛盘维度﹀悗鐐瑰嚮銆竴閿筛选夈盘? image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ) : (
+              <Table<SelectionResultItem>
+                columns={columns}
+                dataSource={results}
+                rowKey="code"
+                loading={loading}
+                size="small"
+                scroll={{ x: 1200 }}
+                pagination={{
+                  pageSize: 20, showSizeChanger: true, showQuickJumper: true,
+                  pageSizeOptions: ['10', '20', '50'],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} / 鍏?${total} 取猔,
+                }}
+                locale={{ emptyText: <Empty description="录撳墠澶氱维条′件术盘夊嚭鑲＄エ" /> }}
+              />
+            )}
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 模板鍔犺浇 Modal */}
+      <Modal
+        title="鍔犺浇选股模板"
+        open={templateModalOpen}
+        onCancel={() => setTemplateModalOpen(false)}
+        footer={null}
+        width={540}
+      >
+        <div style={{ maxHeight: 420, overflow: 'auto' }}>
+          {templates.length === 0 ? (
+            <Empty description="鏆傛棤保守瓨的勬ā条? />
+          ) : (
+            templates.map((tmpl) => {
+              const dims = tmpl.dimensions || {};
+              const enabledDims = Object.keys(dims).filter(k => dims[k as keyof typeof dims]);
+              return (
+                <Card
+                  key={tmpl.id}
+                  size="small"
+                  style={{ marginBottom: 8, borderRadius: 6 }}
+                  bodyStyle={{ padding: '10px 14px' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <Text strong>{tmpl.name}</Text>
+                      {tmpl.isDefault && <Tag color="blue" style={{ marginLeft: 8, fontSize: 10 }}>鍐呯</Tag>}
+                      <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {enabledDims.map(d => (
+                          <Tag key={d} style={{ fontSize: 10, margin: 0 }}>
+                            {DIM_ICONS[d] || ''} {DIM_LABELS[d] || d}
+                          </Tag>
+                        ))}
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {tmpl.max_results ? `一婇檺${tmpl.max_results}取猔 : ''}
+                          {tmpl.createdAt ? ` | ${new Date(tmpl.createdAt).toLocaleDateString()}` : ''}
+                        </Text>
+                      </div>
+                    </div>
+                    <Space>
+                      <Button size="small" type="primary" onClick={() => handleLoadTemplate(tmpl)}>
+                        鍔犺浇
+                      </Button>
+                      {!tmpl.isDefault && (
+                        <Popconfirm title="纭畾分犻櫎姝ゆā条匡紵" onConfirm={() => handleDeleteTemplate(tmpl.id)}>
+                          <Button size="small" danger>分犻櫎</Button>
+                        </Popconfirm>
+                      )}
+                    </Space>
+                  </div>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      </Modal>
+
+      {/* 模板保守瓨 Modal */}
+      <Modal
+        title="保守瓨录撳墠条′件一本ā条?
+        open={saveModalOpen}
+        onCancel={() => setSaveModalOpen(false)}
+        onOk={handleSaveTemplate}
+        okText="保守瓨"
+      >
+        <Form layout="vertical">
+          <Form.Item label="模板后置О" required>
+            <Input
+              placeholder="渚氭垜的勭煭绾挎ā条?
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+            />
+          </Form.Item>
+          <div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              宸插启鐢ㄧ维度︼細{Object.keys(buildDimensions()).map(d => DIM_LABELS[d] || d).join('銆?) || '鏃?}
+            </Text>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* 鑲＄エ璇︽儏圭獥 */}
+      <Modal title={detailStock ? `${detailStock.code} ${detailStock.name}` : ''} open={!!detailStock} onCancel={() => { setDetailStock(null); setKlineData([]); }} footer={null} width={700}>
+        {detailStock && <>
+          <Descriptions column={2} size="small" bordered style={{ marginBottom: 16 }}>
+            <Descriptions.Item label="价锋牸">{detailStock.price ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="娑ㄨ穼骞?>{detailStock.changePct != null ? `${detailStock.changePct}%` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="缁煎寰楀垎">{detailStock.compositeScore}</Descriptions.Item>
+            <Descriptions.Item label="风险评分">{detailStock.riskScore}</Descriptions.Item>
+            <Descriptions.Item label="风险筛骇">{detailStock.riskLevel}</Descriptions.Item>
+            <Descriptions.Item label="瓒势哄害">{detailStock.trendStrength}</Descriptions.Item>
+            <Descriptions.Item label="共振状态盘?>{detailStock.resonanceStatus || '-'}</Descriptions.Item>
+            <Descriptions.Item label="财务筛骇">{detailStock.financeGrade}</Descriptions.Item>
+            <Descriptions.Item label="鎿嶄綔寤鸿" span={2}>
+              <Text strong style={{ color: detailStock.compositeScore >= 85 ? '#52c41a' : '#faad14' }}>{detailStock.operationAdvice}</Text>
+            </Descriptions.Item>
+          </Descriptions>
+          <Divider style={{ margin: '8px 0', fontSize: 13 }}>鏃绾垮浘</Divider>
+          <div style={{ width: '100%', height: 320 }}>
+            {klineLoading ? <div style={{ textAlign: 'center', paddingTop: 120 }}><Spin /></div>
+            : klineData.length > 0 ? <KLineChart data={klineData} />
+            : <Text type="secondary" style={{ display: 'block', textAlign: 'center', paddingTop: 120 }}>鏆傛棤K线数据?/Text>}
+          </div>
+        </>}
+      </Modal>
+    </div>
+  );
+};
+
+// K线数据加载
+  const KLineChart: React.FC<{ data: any[] }> = ({ data }) => {
+  const chartRef = React.useRef<any>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!containerRef.current || data.length === 0) return;
+    import('echarts').then(echarts => {
+      if (chartRef.current) chartRef.current.dispose();
+      const chart = echarts.init(containerRef.current!);
+      chartRef.current = chart;
+      const kdata = data.map((k: any) => [
+        k.date || k.trade_date || '',
+        k.open !== undefined ? Number(k.open) : Number(k.open_price),
+        k.close !== undefined ? Number(k.close) : Number(k.close_price),
+        k.low !== undefined ? Number(k.low) : Number(k.low_price),
+        k.high !== undefined ? Number(k.high) : Number(k.high_price),
+        k.volume || 0,
+      ]);
+      const dates = kdata.map((d: any) => d[0]);
+      const values = kdata.map((d: any) => [d[1], d[2], d[3], d[4]]);
+      const volumes = kdata.map((d: any) => d[5]);
+      chart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+        grid: [
+          { left: '8%', right: '5%', top: '5%', height: '65%' },
+          { left: '8%', right: '5%', top: '78%', height: '15%' },
+        ],
+        xAxis: [
+          { type: 'category', data: dates, gridIndex: 0, axisLabel: { rotate: 30, fontSize: 10 } },
+          { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } },
+        ],
+        yAxis: [
+          { type: 'value', gridIndex: 0, scale: true, splitNumber: 5 },
+          { type: 'value', gridIndex: 1, splitNumber: 3 },
+        ],
+        series: [
+          { type: 'candlestick', data: values, xAxisIndex: 0, yAxisIndex: 0,
+            itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' } },
+          { type: 'bar', data: volumes, xAxisIndex: 1, yAxisIndex: 1,
+            itemStyle: { color: (p: any) => { const b = values[p.dataIndex]; return b ? (b[0] > b[1] ? '#ef5350' : '#26a69a') : '#999'; } } },
+        ],
+        dataZoom: [{ type: 'inside', xAxisIndex: [0, 1], start: Math.max(0, 100 - 60 * 100 / data.length), end: 100 }],
+      });
+      window.addEventListener('resize', () => chart.resize());
+    });
+    return () => { if (chartRef.current) chartRef.current.dispose(); };
+  }, [data]);
+
+  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+};
+
+export default CustomSelectionTab;
+

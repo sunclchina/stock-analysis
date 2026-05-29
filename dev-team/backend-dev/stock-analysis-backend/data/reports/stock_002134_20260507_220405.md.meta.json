@@ -1,0 +1,1 @@
+{"code": "002134", "name": "天津普林", "status": "completed", "report_type": "stock", "usage": {"prompt_tokens": 8753, "completion_tokens": 3128, "total_tokens": 11881, "prompt_tokens_details": {"cached_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 8753}, "error": null, "report_title": "个股分析_002134", "user_id": 1}

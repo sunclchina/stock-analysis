@@ -1,0 +1,30 @@
+
+  [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m817[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m8080[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.10.200:[1m8080[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.195.1:[1m8080[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.58.1:[1m8080[22m/[39m
+[2m10:02:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Config/TemplateTab.tsx, /src/styles/global.css[22m
+[2m11:28:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/global.css, /src/pages/Config/WatchlistTab.tsx, /src/pages/Config/TemplateTab.tsx, /src/pages/Config/MonitorPoolTab.tsx, /src/pages/Config/DataSourceTab.tsx[22m
+[2m11:29:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Config/TemplateTab.tsx, /src/styles/global.css[22m
+[2m11:29:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Config/TemplateTab.tsx, /src/styles/global.css[22m
+[2m11:29:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Config/TemplateTab.tsx, /src/styles/global.css[22m
+[2m11:29:39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Config/TemplateTab.tsx, /src/styles/global.css[22m
+[2m15:19:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/layouts/HeaderBar.tsx, /src/styles/global.css[22m
+[2m15:19:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Selection/FixedSelectionTab.tsx, /src/styles/global.css[22m
+[2m15:19:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Selection/CustomSelectionTab.tsx, /src/styles/global.css[22m
+[2m15:19:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/layouts/HeaderBar.tsx, /src/styles/global.css[22m
+[2m15:19:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/global.css, /src/pages/Selection/FixedSelectionTab.tsx, /src/pages/Selection/CustomSelectionTab.tsx[22m
+[2m15:19:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/layouts/HeaderBar.tsx, /src/styles/global.css[22m
+[2m15:19:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/global.css, /src/pages/Selection/FixedSelectionTab.tsx, /src/pages/Selection/CustomSelectionTab.tsx[22m
+[2m15:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/layouts/HeaderBar.tsx, /src/styles/global.css[22m
+[2m15:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Selection/CustomSelectionTab.tsx, /src/styles/global.css[22m
+[2m15:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/global.css, /src/pages/Selection/FixedSelectionTab.tsx, /src/pages/Selection/CustomSelectionTab.tsx[22m
+[2m15:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Selection/FixedSelectionTab.tsx, /src/styles/global.css[22m
+[2m15:45:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/layouts/HeaderBar.tsx, /src/styles/global.css[22m
+[2m15:45:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/global.css, /src/pages/Selection/FixedSelectionTab.tsx, /src/pages/Selection/CustomSelectionTab.tsx[22m
+[2m15:45:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Selection/CustomSelectionTab.tsx, /src/styles/global.css[22m
+[2m15:45:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Selection/FixedSelectionTab.tsx, /src/styles/global.css[22m
+[2m15:46:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/layouts/HeaderBar.tsx, /src/styles/global.css[22m
+[2m15:46:40[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/layouts/HeaderBar.tsx, /src/styles/global.css[22m

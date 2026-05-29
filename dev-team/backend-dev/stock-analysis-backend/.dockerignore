@@ -1,0 +1,9 @@
+﻿.git
+.gitignore
+__pycache__
+*.pyc
+logs/
+data/cache/
+data/reports/
+node_modules/
+test_*.py

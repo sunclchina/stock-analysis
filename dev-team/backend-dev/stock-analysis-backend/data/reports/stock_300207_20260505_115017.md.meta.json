@@ -1,0 +1,1 @@
+{"code": "300207", "name": "欣旺达", "status": "completed", "report_type": "stock", "usage": {"prompt_tokens": 8766, "completion_tokens": 3324, "total_tokens": 12090, "prompt_tokens_details": {"cached_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 8766}, "error": null, "report_title": "个股分析_300207", "user_id": 1}

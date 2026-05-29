@@ -1,0 +1,103 @@
+{
+  "project": "股票分析与投资决策系统",
+  "startedAt": "2026-04-27 22:52",
+  "activities": [
+    {
+      "id": "act_001",
+      "role": "architect",
+      "startTime": "2026-04-29 12:59",
+      "endTime": "2026-04-29 13:02",
+      "tools": ["memory_search", "read", "write"],
+      "files": [
+        {
+          "path": "dev-team/architect/architecture-plan.md",
+          "size": 25212,
+          "mtime": "2026-04-29 13:02",
+          "note": "整体技术方案：模块清单/依赖/开发顺序/技术栈/接口/数据流/目录结构"
+        }
+      ],
+      "decisions": [
+        "前端选型：React 18 + TypeScript + Vite + Ant Design + ECharts",
+        "后端选型：Python FastAPI + SQLAlchemy + Pandas/NumPy",
+        "数据库初期使用SQLite，通过SQLAlchemy可平滑迁移",
+        "实时通信统一使用WebSocket（业务+预警推送）",
+        "5阶段开发顺序：骨架→配置/行情→预警/仪表盘→选股/分析→联调优化",
+        "数据缓存初期使用内存缓存（cachetools），暂不引入Redis",
+        "通达信本地解析为数据源优先实现项",
+        "预警引擎为最核心底层模块，优先于选股和分析"
+      ],
+      "notes": "完成设计文档检索与整体技术方案编制"
+    },
+    {
+      "id": "act_002",
+      "role": "backend-dev",
+      "startTime": "2026-04-29 13:03",
+      "endTime": "2026-04-29 13:06",
+      "tools": ["write", "exec", "read"],
+      "files": [
+        {"path": "dev-team/backend-dev/stock-analysis-backend/.env", "size": 360, "mtime": "2026-04-29 13:04", "note": "环境变量：后端端口/CORS/数据源路径/数据库"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/requirements.txt", "size": 300, "mtime": "2026-04-29 13:04", "note": "Python依赖：fastapi/uvicorn/sqlalchemy/httpx/pandas/numpy/apscheduler"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/main.py", "size": 3981, "mtime": "2026-04-29 13:05", "note": "FastAPI入口：CORS中间件/WebSocket端点/生命周期管理"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/config/settings.py", "size": 1316, "mtime": "2026-04-29 13:04", "note": "Pydantic Settings从.env读取全部配置"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/config/database.py", "size": 1075, "mtime": "2026-04-29 13:04", "note": "SQLAlchemy异步引擎/SQLite连接/会话工厂"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/router.py", "size": 1229, "mtime": "2026-04-29 13:05", "note": "API路由注册中心/统一/api/v1前缀/健康检查"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/config_api.py", "size": 5388, "mtime": "2026-04-29 13:05", "note": "M06配置API：自选股CRUD/配置读写"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/market.py", "size": 2968, "mtime": "2026-04-29 13:05", "note": "M02行情API占位：大盘概览/批量行情/K线"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/dashboard.py", "size": 695, "mtime": "2026-04-29 13:05", "note": "M01仪表盘API占位"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/warning.py", "size": 936, "mtime": "2026-04-29 13:05", "note": "M03预警API占位"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/selection.py", "size": 702, "mtime": "2026-04-29 13:05", "note": "M04选股API占位"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/analysis.py", "size": 915, "mtime": "2026-04-29 13:05", "note": "M05分析API占位"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/data_source/base.py", "size": 3731, "mtime": "2026-04-29 13:04", "note": "数据源抽象基类：QuoteData/KLineData/状态管理"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/data_source/tdx_local.py", "size": 10962, "mtime": "2026-04-29 13:04", "note": "通达信本地数据源：ds_stk.dat解析/.day日线解析"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/data_source/sina.py", "size": 5329, "mtime": "2026-04-29 13:04", "note": "新浪备用数据源：实时行情API"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/data_source/eastmoney.py", "size": 1031, "mtime": "2026-04-29 13:04", "note": "东方财富备用数据源（占位）"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/data_source/fallback.py", "size": 5353, "mtime": "2026-04-29 13:04", "note": "数据源管理器+自动降级策略"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/websocket_manager.py", "size": 2168, "mtime": "2026-04-29 13:05", "note": "WebSocket连接管理器：广播/行情推送/预警通知"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/scheduler.py", "size": 2571, "mtime": "2026-04-29 13:05", "note": "APScheduler定时任务管理器"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/models/stock.py", "size": 2306, "mtime": "2026-04-29 13:04", "note": "股票模型：StockInfo/StockDailyPrice"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/models/config.py", "size": 2456, "mtime": "2026-04-29 13:04", "note": "配置模型：Watchlist/Monitor/UserPreference"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/models/warning.py", "size": 1301, "mtime": "2026-04-29 13:04", "note": "预警模型WarningRecord"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/models/analysis.py", "size": 1166, "mtime": "2026-04-29 13:04", "note": "分析报告模型AnalysisReport"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/utils/cache.py", "size": 1138, "mtime": "2026-04-29 13:05", "note": "TTLCache内存缓存：行情/K线/配置缓存"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/utils/indicators.py", "size": 3309, "mtime": "2026-04-29 13:05", "note": "技术指标：MA/EMA/MACD/KDJ/RSI"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/utils/tdx_parser.py", "size": 4760, "mtime": "2026-04-29 13:05", "note": "通达信底层解析：day文件/ds_stk文件"}
+      ],
+      "decisions": [
+        "后端端口固定8000（前端8080，分离部署）",
+        "数据源三层架构：抽象基类→具体实现→管理器（带自动降级）",
+        "ds_stk.dat解析按标准偏移格式实现（0x98文件头，306字节记录）",
+        "新浪解析格式兼容多只股票同时查询（逗号分隔）",
+        "配置文件.env存放，Pydantic Settings自动读取",
+        "SQLAlchemy async模式，SQLite+aiosqlite",
+        "TTLCache三层缓存：行情5s/K线5min/配置30s",
+        "WebSocket广播模式，心跳30s"
+      ],
+      "notes": "阶段1后端全部实现：API网关+数据源适配层+数据模型+配置API+行情API占位"
+    },
+    {
+      "id": "act_007",
+      "role": "backend-dev+frontend-dev",
+      "startTime": "2026-05-01 21:09",
+      "endTime": "2026-05-01 21:35",
+      "tools": ["read", "write", "edit"],
+      "files": [
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/selection_engine/fixed.py", "size": 24004, "mtime": "2026-05-01 21:12", "note": "全改：5层过滤对齐设计文档"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/selection_engine/scorer.py", "size": 9957, "mtime": "2026-05-01 21:13", "note": "全改：设计文档评分体系45/20/25/10"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/api/selection.py", "size": 18678, "mtime": "2026-05-01 21:17", "note": "改：ID映射/响应格式/移除硬编码/模板API"},
+        {"path": "dev-team/backend-dev/stock-analysis-backend/backend/services/selection_engine/__init__.py", "size": 542, "mtime": "2026-05-01 21:13", "note": "微调"},
+        {"path": "dev-team/frontend-dev/stock-analysis-frontend/src/services/selectionApi.ts", "size": 4863, "mtime": "2026-05-01 21:14", "note": "改：API格式对齐+模板管理"},
+        {"path": "dev-team/frontend-dev/stock-analysis-frontend/src/pages/Selection/FixedSelectionTab.tsx", "size": 15306, "mtime": "2026-05-01 21:15", "note": "全改：策略ID对齐/容量控制/导出/共振字段"},
+        {"path": "dev-team/frontend-dev/stock-analysis-frontend/src/pages/Selection/CustomSelectionTab.tsx", "size": 27172, "mtime": "2026-05-01 21:16", "note": "全改：模板功能/导出/API格式"}
+      ],
+      "decisions": [
+        "前端策略ID保持steady_trend/reversal_breakout/short_term_strong，后端统一",
+        "旧ID映射兼容：stable_trend→steady_trend, reversal_breakthrough→reversal_breakout",
+        "API响应统一为{items, count}格式，兼容前端SelectionResultItem",
+        "移除所有硬编码mock数据和SAMPLE_STOCKS",
+        "自定义模板管理目前使用localStorage（前端）+ JSON文件（后端）",
+        "3个内置默认模板（短线共振/长线价值/低位反转）不可删除"
+      ],
+      "notes": "M04模块全面对照设计文档v2.0修复：5层过滤重写/评分体系对齐/ID映射/模板功能/移除硬编码"
+    }
+  ]
+}

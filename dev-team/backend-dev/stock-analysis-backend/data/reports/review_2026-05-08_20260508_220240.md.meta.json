@@ -1,0 +1,1 @@
+{"date": "2026-05-08", "status": "completed", "report_type": "review", "watch_stocks": ["600666", "300207", "300850"], "usage": {"prompt_tokens": 5060, "completion_tokens": 2695, "total_tokens": 7755, "prompt_tokens_details": {"cached_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 5060}, "error": null, "report_title": "复盘分析_2026-05-08", "user_id": 1}

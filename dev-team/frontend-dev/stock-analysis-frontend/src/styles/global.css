@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ant Design overrides */
+.ant-layout {
+  background: var(--content-bg) !important;
+}
+
+.ant-layout-sider {
+  background: var(--sidebar-bg) !important;
+}
+
+.ant-layout-content {
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+}
+
+.ant-menu-dark {
+  background: transparent !important;
+}
+
+/* Smooth sidebar transition */
+.sidebar-collapse-transition {
+  transition: width 0.3s ease;
+}
+
+/* Card styling */
+.ant-card {
+  border-radius: var(--card-radius) !important;
+  box-shadow: var(--card-shadow) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+
+.ant-card:hover {
+  box-shadow: var(--card-shadow-hover) !important;
+}
+
+/* Button hover effects */
+.btn-hover-scale {
+  transition: all 0.2s ease;
+}
+.btn-hover-scale:hover {
+  transform: scale(1.02);
+}
+.btn-hover-scale:active {
+  transform: scale(0.98);
+}
+
+/* Page transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Responsive breakpoints for sidebar */
+@media (max-width: 1199px) {
+  :root {
+    --sidebar-width-expanded: 200px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .ant-layout-sider {
+    --sidebar-width-expanded: 200px;
+  }
+}
+
+@media (max-width: 767px) {
+  .ant-layout-sider {
+    position: fixed !important;
+    z-index: 1000 !important;
+  }
+}
+
+/* 仪表盘右侧辅助区响应式 */
+@media (max-width: 1200px) {
+  .dashboard-side-panel {
+    display: none !important;
+  }
+}
+
+/* Placeholder page styles */
+.page-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--content-text);
+  opacity: 0.5;
+  font-size: 18px;
+}
+
+.page-placeholder .icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+/* 手机适配：设置页表格水平滚动 */
+@media (max-width: 768px) {
+  .config-table-wrap { overflow-x: auto; }
+  .config-table-wrap .ant-table { min-width: 600px; }
+  .ant-card-body { padding: 12px !important; }
+  .ant-tabs-nav { padding: 0 8px; }
+}

@@ -1,0 +1,56 @@
+# OpenClaw workspace files (exclude from project repo)
+.openclaw/
+.clawhub/
+.vite/
+AGENTS.md
+SOUL.md
+IDENTITY.md
+USER.md
+TOOLS.md
+HEARTBEAT.md
+memory/
+skills/
+agents/
+
+# Build artifacts
+stock-analysis-*.tar
+stock-analysis-*.tar.gz
+stock-analysis-*.zip
+*.tar.gz
+test3.tar.gz
+stock-analysis-deploy.zip
+stock-analysis-src.tar.gz
+
+# Temp/test files
+_test/
+task_push_test.json
+test_response.json
+test_login_flow.js
+stock-analysis-20260508-run-cmd.txt
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Node modules
+node_modules/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Backend logs
+dev-team/backend-dev/stock-analysis-backend/logs/
+dev-team/backend-dev/stock-analysis-backend/data/cache/
+
+# Environment files (keep .env.example, exclude actual .env)
+.env
+.env.production
