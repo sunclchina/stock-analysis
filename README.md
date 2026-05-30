@@ -107,28 +107,6 @@ python -m backend.main
 
 ---
 
-## Docker 部署
-
-### 构建镜像
-
-```bash
-docker build -t stock-analysis:latest .
-```
-
-### 运行容器
-
-```bash
-docker run -d --name stock-analysis \
-  -p 8000:8000 \
-  -v /path/to/your/.env:/app/.env \
-  -v stock-data:/app/data \
-  stock-analysis:latest
-```
-
-> **注意：** Docker 镜像不包含 `.env` 文件，必须通过挂载卷注入配置。
-
----
-
 ## 界面导航
 
 | 路径 | 模块 |
