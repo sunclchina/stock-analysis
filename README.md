@@ -74,10 +74,13 @@ python -m backend.main
 
 访问 `http://localhost:8000`
 
-### 方案二：Docker
+### 方案二：Docker（推荐）
 
 ```bash
-docker build -t stock-analysis .
+# 从仓库根目录构建
+docker build -t stock-analysis -f Dockerfile .
+
+# 运行容器（.env 通过挂载注入）
 docker run -d --name stock-analysis \
   -p 8000:8000 \
   -v /path/to/your/.env:/app/.env \
