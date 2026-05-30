@@ -1,294 +1,203 @@
 # 股票分析与投资决策系统
 
-> 面向个人投资者的全栈量化分析平台，涵盖实时行情、智能选股、技术分析、七维预警、资产组合管理与决策辅助。
+面向个人投资者的量化分析平台。单端口部署，后端托管前端静态文件，开箱即用。
+
+涵盖实时行情、智能选股、技术分析、七维预警、资产组合管理与决策辅助。
 
 ---
 
 ## 目录
 
-- [概览](#概览)
-- [功能模块](#功能模块)
-- [技术栈](#技术栈)
-- [生产部署](#生产部署)
-- [开发模式](#开发模式)
+- [快速启动](#快速启动)
+- [环境配置（部署前必读）](#环境配置部署前必读)
+- [构建生产版本](#构建生产版本)
+- [Docker 部署](#docker-部署)
 - [界面导航](#界面导航)
-- [数据源说明](#数据源说明)
 - [目录结构](#目录结构)
-- [开发团队](#开发团队)
-- [许可证](#许可证)
+- [常见问题](#常见问题)
 
 ---
 
-## 概览
+## 快速启动
 
-本系统提供从**数据采集 → 智能选股 → 技术分析 → 实时预警 → 资产管理**的完整投资流程，纯量化算法驱动，不依赖 AI 大模型。
+### 前提条件
 
-单服务部署，后端 FastAPI 统一承载 API + 前端静态资源，生产环境通过 Docker 一键启动。
+| 组件 | 最低版本 |
+|------|---------|
+| Python | 3.10+ |
 
-| 特性 | 说明 |
-|------|------|
-| 实时行情 | 新浪/东方财富多数据源自动降级，WebSocket 推送 |
-| 智能选股 | 固定策略 + 自定义指标选股 + 形态选股，支持回测 |
-| 七维预警 | 价格、涨跌、趋势、共振、财务、事件、风险评分 |
-| 资产组合 | 虚拟账户、多标的回测、量化策略 |
-| 操盘笔记 | 标签化笔记，关联股票，置顶/搜索/筛选 |
-| 数据源 | 多源自动降级：新浪 → 东方财富 → Baostock → TDX |
+### 1. 创建配置文件
 
----
-
-## 功能模块
-
-### M01 仪表盘
-系统状态总览：数据源健康度、市场概览、预警统计、自选股快照、最新分析、决策参考。
-
-### M02 实时行情
-多股批量行情展示，自动识别指数/板块/个股，WebSocket 实时推送涨跌变化。
-
-### M03 智能预警 — 七维预警体系
-
-| 维度 | 监控内容 | 颜色等级 |
-|------|----------|----------|
-| 价格预警 | 突破压力位/支撑位、日内振幅异常 | 🟢🟡🔴 |
-| 涨跌预警 | 连续涨跌停、高开低走、低开高走 | 🟢🟡🔴 |
-| 趋势预警 | 均线多头/空头排列、MACD 顶底背离 | 🟢🟡🔴 |
-| 共振预警 | 多周期共振看多/看空 | 🟢🔴 |
-| 财务预警 | PE/PB 异常、营收利润背离 | 🟡🔴 |
-| 事件预警 | 财务造假、审计否定、债务违约、公开谴责 | 🔵⚫ |
-| 风险评分 | 综合多维度量化打分 | 🟢🟡🟠🔴 |
-
-### M04 智能选股
-- **固定选股**：预定义的经典选股策略模板（放量突破、MACD 金叉、均线多头等）
-- **自定义选股**：用户自由组合技术指标筛选条件
-- **形态选股**：程序化识别 K 线形态（头肩底、W 底、上升三角形等）
-
-### M05 智能分析
-- **个股深度分析**：多维度技术指标 + 财务数据 + 行业对比
-- **盘后复盘**：当日行情回顾、板块轮动、异动股监控
-- **AI 增强分析**：接入 DeepSeek API 生成自然语言分析报告
-
-### M06 系统配置
-- 自选股管理：添加/删除/排序/导入通达信自选股
-- 监控池管理：设置监控标的及阈值
-- 数据源切换：手动切换主/备数据源
-- 用户偏好：交易时段、显示设置
-
-### M07 资产组合
-- 虚拟账户管理：创建多个模拟账户
-- 持仓管理：买入/卖出记录，持仓盈亏统计
-- 量化策略：自定义策略 + 信号源配置
-- 多标回测：支持多只股票同时回测，资金按比例分配
-
-### M00 操盘笔记
-标签化笔记系统，支持关联股票、关键词搜索、置顶、时间倒序。
-
----
-
-## 技术栈
-
-| 层 | 技术 | 版本 |
-|----|------|------|
-| 前端框架 | React 18 + TypeScript | ^18.3.0 |
-| UI 组件 | Ant Design 5 | ^5.22.0 |
-| 图表 | ECharts 5 + echarts-for-react | ^5.5.0 |
-| 状态管理 | Zustand | ^5.0.0 |
-| 路由 | React Router 7 | ^7.0.0 |
-| 构建 | Vite 6 | ^6.0.0 |
-| 后端框架 | FastAPI + Python 3.11 | ≥0.110.0 |
-| 数据库 | SQLite + SQLAlchemy (Async) | 异步模式 |
-| 定时任务 | APScheduler | ≥3.10.0 |
-| 数据采集 | httpx / akshare / Baostock | — |
-| 认证 | JWT (python-jose) | ≥3.3.0 |
-
----
-
-## 生产部署
-
-**架构**：单服务部署。后端 FastAPI 在 `8000` 端口提供服务，同时挂载前端构建产物作为静态文件。用户访问 `http://<host>:8000` 即可使用。
-
-### Docker 部署（推荐）
-
-```bash
-# 1. 构建前端
-# 如果从 Gitea 克隆：
-#     git clone http://localhost:3000/sunclchina/stock-analysis.git
-#     cd stock-analysis/dev-team/frontend-dev/stock-analysis-frontend
-
-cd dev-team/frontend-dev/stock-analysis-frontend
-npm install
-npm run build
-
-# 2. 构建 Docker 镜像（项目根目录）
-cd ../../..
-docker compose build
-
-# 3. 启动服务
-docker compose up -d
-
-# 4. 访问
-open http://localhost:8000
+```powershell
+# 从模板创建
+cp .env.example .env
 ```
 
-### 非 Docker 部署
+### 2. 安装依赖 & 启动
 
-```bash
-# 1. 构建前端
-cd dev-team/frontend-dev/stock-analysis-frontend
-npm install
-npm run build
-
-# 2. 将前端产物复制到后端静态目录
-cp -r dist ../../backend-dev/stock-analysis-backend/backend/static/
-
-# 3. 启动后端（自动加载静态文件）
-cd ../../backend-dev/stock-analysis-backend
-python -m venv .venv
-source .venv/bin/activate
+```powershell
 pip install -r requirements.txt
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+python -m backend.main
 ```
 
-### 环境变量配置
-
-编辑 `.env` 文件（位于 `dev-team/backend-dev/stock-analysis-backend/.env`）：
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `BACKEND_HOST` | 监听地址 | `0.0.0.0` |
-| `BACKEND_PORT` | 监听端口 | `8000` |
-| `DATABASE_URL` | 数据库连接 | `sqlite+aiosqlite:///./data/cache/stock.db` |
-| `PRIMARY_DATA_SOURCE` | 主数据源 | `sina` |
-| `FALLBACK_DATA_SOURCE` | 备用数据源 | `eastmoney` |
-| `DEFAULT_ADMIN_USERNAME` | 初始管理员账号 | `admin` |
-| `DEFAULT_ADMIN_PASSWORD` | 初始管理员密码 | 按需设置 |
-
-### 默认账号
-
-| 用户名 | 角色 |
-|--------|------|
-| `admin` | 管理员 |
-| `demo` | 演示用户 |
+访问 **http://localhost:8000**
 
 ---
 
-## 开发模式
+## 环境配置（部署前必读）
 
-前后端分离启动，便于热更新调试：
+### ⚠️ 必须配置的项
 
-```bash
-# 终端 1 — 后端（8000 端口）
-cd dev-team/backend-dev/stock-analysis-backend
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+> **不配置就无法安全运行**的项，部署前务必完成设置：
 
-# 终端 2 — 前端（8080 端口，API 代理到后端 8000）
-cd dev-team/frontend-dev/stock-analysis-frontend
-npm run dev
+| 优先级 | 配置项 | 说明 | 不配的后果 | 获取方式 |
+|--------|--------|------|-----------|---------|
+| 🔴 **必须** | `JWT_SECRET` | JWT 签名密钥 | Token 可被伪造，**安全风险** | `python -c "import secrets; print(secrets.token_hex(32))"` 生成 |
+| 🟡 **推荐** | `DEEPSEEK_API_KEY` | DeepSeek AI 密钥 | AI 智能分析不可用，核心功能不受影响 | [DeepSeek 开放平台](https://platform.deepseek.com/) |
+| 🟡 **推荐** | `DEFAULT_ADMIN_PASSWORD` | 管理员密码 | 默认弱密码 `admin123`，安全风险 | 自行设置 |
+
+> - 编辑 `dev-team/backend-dev/stock-analysis-backend/.env` 文件完成配置
+> - 编辑后重启服务生效
+
+---
+
+## 构建生产版本
+
+### 方案一：直接运行（推荐）
+
+后端已包含前端静态文件（`backend/static/`），一个命令启动：
+
+```powershell
+cd dev-team\backend-dev\stock-analysis-backend
+python -m backend.main
 ```
 
-开发环境下：
-- 前端访问 `http://localhost:8080`，Vite 代理 `/api` 到后端
-- 后端 API 直接访问 `http://localhost:8000`
-- 前端修改热更新，后端修改 `--reload` 自动重启
+访问 `http://localhost:8000`
+
+### 方案二：Docker
+
+```bash
+docker build -t stock-analysis .
+docker run -d --name stock-analysis \
+  -p 8000:8000 \
+  -v /path/to/your/.env:/app/.env \
+  stock-analysis
+```
+
+### 方案三：重新构建前端 + 后端打包
+
+如需修改前端代码后重新构建：
+
+```powershell
+# 构建前端
+cd dev-team\frontend-dev\stock-analysis-frontend
+npm install
+npm run build
+
+# 复制到后端静态目录
+Copy-Item "dist\*" "..\..\backend-dev\stock-analysis-backend\backend\static\" -Recurse -Force
+
+# 启动后端
+cd ..\..\backend-dev\stock-analysis-backend
+python -m backend.main
+```
+
+---
+
+## Docker 部署
+
+### 构建镜像
+
+```bash
+docker build -t stock-analysis:latest .
+```
+
+### 运行容器
+
+```bash
+docker run -d --name stock-analysis \
+  -p 8000:8000 \
+  -v /path/to/your/.env:/app/.env \
+  -v stock-data:/app/data \
+  stock-analysis:latest
+```
+
+> **注意：** Docker 镜像不包含 `.env` 文件，必须通过挂载卷注入配置。
 
 ---
 
 ## 界面导航
 
-所有功能模块通过**统一侧栏导航菜单**访问：
-
-```
-📊 仪表盘        — 系统状态、市场概览、决策参考
-📈 实时行情      — 监控池/自选股批量行情
-🎯 智能选股      — 固定策略 / 自定义选股 / 形态选股
-🔍 智能分析      — 个股分析 / 盘后复盘
-⚠️ 智能预警      — 七维预警面板 / 预警记录
-💼 资产组合      — 虚拟账户 / 持仓 / 策略 / 回测
-📝 操盘笔记      — 笔记列表 / 新建 / 标签筛选
-⚙️ 系统配置      — 自选股 / 监控池 / 数据源 / 偏好
-```
-
-侧栏支持折叠/展开，深色/浅色主题切换。
-
----
-
-## 数据源说明
-
-系统内置多数据源自动降级机制：
-
-| 数据源 | 类型 | 行情 | K线 | 说明 |
-|--------|------|------|-----|------|
-| 新浪财经 | HTTP | ✅ | ❌(API变更) | 主数据源 |
-| 东方财富 | HTTP | ✅ | ✅ | 备用数据源 |
-| Baostock | SDK | ❌ | ✅ | K线专用源 |
-| AKShare | SDK | 选股专用 | — | 选股辅助 |
-
-**降级策略**：行情请求先试新浪，失败自动切到东方财富，再失败则使用 Baostock 缓存数据。数据源状态可在「系统配置 → 数据源」页面查看，支持手动重置。
+| 路径 | 模块 |
+|------|------|
+| `/` | 仪表盘 |
+| `/market` | 实时行情 |
+| `/warning` | 智能预警（七维预警 + 综合决策矩阵） |
+| `/selection` | 智能选股 |
+| `/analysis` | 智能分析 |
+| `/config` | 系统配置 |
 
 ---
 
 ## 目录结构
 
 ```
-project_root/                    # Git 仓库根目录
-├── dev-team/                    # 项目主目录
+stock-analysis/
+├── .env.example                  # 配置模板（复制为 .env 后编辑）
+├── Dockerfile                    # 多阶段构建（前端 + 后端）
+├── requirements.txt              # Python 依赖
+├── .gitignore
+├── README.md                     # ← 唯一说明文档
+│
+├── dev-team/
 │   ├── backend-dev/
 │   │   └── stock-analysis-backend/
-│   │       ├── backend/
-│   │       │   ├── api/              # API 路由层（按模块划分）
-│   │       │   ├── config/           # 系统配置 + 数据库
-│   │       │   ├── models/           # SQLAlchemy 数据模型
-│   │       │   ├── services/         # 业务逻辑层
-│   │       │   │   ├── data_source/  # 多数据源 + 自动降级
-│   │       │   │   ├── warning_engine/ # 七维预警引擎
-│   │       │   │   └── selection_engine/ # 选股引擎
-│   │       │   ├── utils/            # 工具函数（指标计算等）
-│   │       │   ├── static/           # 前端构建产物（生产）
-│   │       │   └── main.py           # FastAPI 入口
-│   │       ├── data/                 # 数据目录（SQLite + 缓存）
-│   │       ├── tests/                # 测试用例
-│   │       └── requirements.txt      # Python 依赖
+│   │       ├── backend/          # Python 源码（FastAPI）
+│   │       │   ├── main.py       # 应用入口（含启动配置校验）
+│   │       │   ├── api/          # API 路由
+│   │       │   ├── config/       # 配置加载
+│   │       │   ├── models/       # 数据模型
+│   │       │   ├── services/     # 业务逻辑
+│   │       │   ├── utils/        # 工具函数
+│   │       │   └── static/       # 前端静态文件（生产构建产物）
+│   │       ├── deploy/           # 部署脚本
+│   │       └── .dockerignore
 │   │
 │   ├── frontend-dev/
-│   │   └── stock-analysis-frontend/
-│   │       └── src/
-│   │           ├── components/       # 共享组件
-│   │           ├── layouts/          # 页面布局 + 侧栏导航
-│   │           ├── pages/            # 各功能页面
-│   │           ├── services/         # API 调用层
-│   │           ├── store/            # Zustand 状态管理
-│   │           └── types/            # TypeScript 类型定义
+│   │   └── stock-analysis-frontend/   # 前端源码（Vue/React）
+│   │       ├── src/
+│   │       └── package.json
 │   │
-│   ├── architect/                    # 架构设计方案文档
-│   ├── tester/                       # 测试工程师产出
-│   ├── devops/                       # 部署配置
-│   ├── PRINCIPLES.md                 # 开发团队工作原则
-│   └── DEVLOG.md                     # 开发日志
-│
-├── Dockerfile                        # 多阶段构建
-├── docker-compose.yml                # 容器编排
-├── .dockerignore                     # Docker 忽略列表
-├── .gitignore                        # Git 忽略列表
-└── README.md                         # 本文件
+│   └── devops/                   # 运维脚本
+│       ├── start-all.ps1
+│       ├── start-backend.ps1
+│       ├── start-frontend.ps1
+│       ├── docker-compose.yml
+│       └── deploy/
+│           ├── nginx.conf
+│           └── .env.production
 ```
 
 ---
 
-## 开发团队
+## 常见问题
 
-| 角色 | 代号 | 职责 |
-|------|------|------|
-| 开发总监 | 青崖 | 团队调度、质量验收 |
-| 技术架构师 | `architect` | 系统设计、架构图、技术栈 |
-| 后端开发 | `backend-dev` | API、业务逻辑、数据库 |
-| 前端开发 | `frontend-dev` | UI 组件、交互、响应式 |
-| 测试工程师 | `tester` | 自动化测试、Bug 定位 |
-| 运维工程师 | `devops` | 部署、上线、监控 |
+### Q: 启动后提示 JWT_SECRET 未设置
+
+编辑 `.env`，用以下命令生成密钥：
+```powershell
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### Q: AI 分析功能不可用
+
+`DEEPSEEK_API_KEY` 未配置，不影响行情/预警/选股等核心功能。
+如需启用，在 `.env` 中设置有效的 API Key。
+
+### Q: 数据源连接失败
+
+检查 `.env` 中 `PRIMARY_DATA_SOURCE` 和 `FALLBACK_DATA_SOURCE` 配置。
 
 ---
 
-## 许可证
-
-本项目为个人投资研究工具，仅供学习参考，不构成投资建议。
-
----
-
-*最后更新: 2026-05-29*
+**版本：** 1.0.0
