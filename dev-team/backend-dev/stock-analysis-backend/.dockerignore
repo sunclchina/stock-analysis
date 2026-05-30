@@ -1,4 +1,4 @@
-﻿.git
+.git
 .gitignore
 __pycache__
 *.pyc
@@ -7,3 +7,11 @@ data/cache/
 data/reports/
 node_modules/
 test_*.py
+_test_*.py
+.venv/
+
+# ---- 避免将本地配置和密钥打入镜像 ----
+.env
+.env.*
+*.tar
+docker_build*.log

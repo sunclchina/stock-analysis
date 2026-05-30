@@ -85,18 +85,33 @@
 | `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型名称 |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
 
-### 2.2 生产环境配置
+### 2.2 首次部署：创建配置文件
 
-复制生产配置模板：
+> ⚠️ **重要：** `.env` 已被 `.gitignore` 排除，不会提交到仓库。
+> 第一次部署时请从模板创建，不要直接使用已有的 `.env`。
 
 ```powershell
+# 从示例模板创建 .env（推荐）
+cp dev-team/backend-dev/stock-analysis-backend/.env.example dev-team/backend-dev/stock-analysis-backend/.env
+
+# 或使用生产配置模板
 cp dev-team/devops/deploy/.env.production dev-team/backend-dev/stock-analysis-backend/.env
 ```
 
-然后编辑 `.env`，替换 `${VAR_NAME}` 占位符。
+然后编辑 `.env`，替换占位符为实际值。
 
-**必须配置的变量：**
-- `DEEPSEEK_API_KEY` — 从 [DeepSeek 开放平台](https://platform.deepseek.com/) 获取
+### 2.3 必须配置的变量
+
+| 变量 | 说明 | 获取方式 |
+|------|------|---------|
+| `DEEPSEEK_API_KEY` | DeepSeek AI 密钥，用于智能分析 | [DeepSeek 开放平台](https://platform.deepseek.com/) |
+| `JWT_SECRET` | JWT 签名密钥，用于用户认证 Token | `python -c "import secrets; print(secrets.token_hex(32))"` 生成 |
+| `DEFAULT_ADMIN_PASSWORD` | 管理员密码 | 自行设置，**请勿使用默认弱密码** |
+
+> **提示：** `JWT_SECRET` 不设置会导致 Token 签名不安全；`DEEPSEEK_API_KEY` 不设置仅影响 AI 功能。
+> 启动时系统会自动检查这些配置并给出提示。
+
+### 2.4 前端环境变量
 
 ### 2.3 前端环境变量
 

@@ -1,0 +1,51 @@
+# ============================================
+# 股票分析与投资决策系统 - Git 忽略规则
+# ============================================
+
+# ---- 环境配置（含 API Key / 密码 / 密钥） ----
+.env
+.env.*.local
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+.venv/
+venv/
+
+# ---- 运行时数据 / 缓存 ----
+**/data/cache/
+**/data/reports/
+**/data/a_share_cache/
+**/data/kline_cache/
+**/data/monitor_cache/
+**/data/premarket_cache/
+**/data/event_cache/
+**/data/templates/
+**/logs/
+*.db
+*.db-journal
+*.db-wal
+
+# ---- 测试 / 调试 ----
+test_*.py
+_test_*.py
+*.log
+
+# ---- IDE / 编辑器 ----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---- 容器构建产物 ----
+*.tar
+docker_build*.log

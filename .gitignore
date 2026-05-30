@@ -47,10 +47,17 @@ Thumbs.db
 *.swp
 *.swo
 
-# Backend logs
+# Backend logs & runtime data
 dev-team/backend-dev/stock-analysis-backend/logs/
-dev-team/backend-dev/stock-analysis-backend/data/cache/*.db
+dev-team/backend-dev/stock-analysis-backend/data/cache/
 dev-team/backend-dev/stock-analysis-backend/data/kline_cache/
+dev-team/backend-dev/stock-analysis-backend/data/monitor_cache/
+dev-team/backend-dev/stock-analysis-backend/data/premarket_cache/
+dev-team/backend-dev/stock-analysis-backend/data/event_cache/
+dev-team/backend-dev/stock-analysis-backend/data/reports/
+dev-team/backend-dev/stock-analysis-backend/data/a_share_cache/
+dev-team/backend-dev/stock-analysis-backend/data/templates/
+dev-team/backend-dev/stock-analysis-backend/data/*.db
 
 # Environment files (keep .env.example, exclude actual .env)
 .env

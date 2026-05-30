@@ -18,6 +18,36 @@ if (Test-Path "$BACKEND_DIR\.env.production") {
     Write-Host "已加载生产环境配置" -ForegroundColor Green
 }
 
+# ---- 部署前配置检查 ----
+Write-Host ""
+Write-Host "[检查] 验证配置完整性..." -ForegroundColor Yellow
+
+$envFile = "$BACKEND_DIR\.env"
+if (-not (Test-Path $envFile)) {
+    Write-Host "错误: 未找到 .env 配置文件！" -ForegroundColor Red
+    Write-Host "请先执行: cp .env.example .env" -ForegroundColor Cyan
+    Write-Host "然后编辑 .env 填入必要配置项。" -ForegroundColor Cyan
+    exit 1
+}
+
+# 读取 .env 并检查关键配置
+$envContent = Get-Content $envFile -Raw
+
+if ($envContent -match 'DEEPSEEK_API_KEY=your_deepseek_api_key_here') {
+    Write-Host "  ⚠️  DEEPSEEK_API_KEY 未配置（AI分析功能不可用）" -ForegroundColor Yellow
+}
+
+if ($envContent -match 'JWT_SECRET=your_jwt_secret_here') {
+    Write-Host "  ⚠️  JWT_SECRET 未配置（Token签名不安全！）" -ForegroundColor Yellow
+    Write-Host "  建议生成随机密钥: python -c "import secrets; print(secrets.token_hex(32))"" -ForegroundColor Gray
+}
+
+if ($envContent -match 'DEFAULT_ADMIN_PASSWORD=admin123') {
+    Write-Host "  ⚠️  默认管理员密码为弱密码（admin123）" -ForegroundColor Yellow
+}
+
+Write-Host "  ✅ 配置检查完成" -ForegroundColor Green
+
 # 验证静态文件
 $STATIC_DIR = "$BACKEND_DIR\backend\static"
 if (-not (Test-Path "$STATIC_DIR\index.html")) {

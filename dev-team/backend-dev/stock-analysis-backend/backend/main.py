@@ -129,6 +129,47 @@ async def _market_refresh_task():
         logger.error(f"定时行情刷新异常: {e}")
 
 
+def _validate_required_config() -> list:
+    """
+    启动时校验关键配置项，返回缺失/不安全的配置警告列表。
+    原则②：禁止硬编码，所有配置必须通过环境变量注入。
+    """
+    warnings = []
+
+    # 1. JWT_SECRET：必须设置，否则 Token 签名可被伪造
+    if not settings.jwt_secret or settings.jwt_secret == "your_jwt_secret_here":
+        warnings.append(
+            "JWT_SECRET 未设置！认证 Token 签名不安全。请设置一个随机字符串，"
+            "可使用命令生成: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+
+    # 2. DEEPSEEK_API_KEY：AI 功能必需
+    if not settings.deepseek_api_key or settings.deepseek_api_key.startswith("sk-"):
+        # sk- 前缀的可能为真实 Key 或测试 Key，仅空白场景才警告
+        if not settings.deepseek_api_key:
+            warnings.append(
+                "DEEPSEEK_API_KEY 未设置，AI 分析功能不可用（不影响核心行情/预警/选股）。"
+                "如需启用请从 https://platform.deepseek.com/ 获取 API Key。"
+            )
+
+    # 3. 默认管理员密码：检查是否未修改
+    if settings.default_admin_password in ("admin123", "your_secure_password_here"):
+        warnings.append(
+            "默认管理员密码为弱密码（admin123），建议立即修改为强密码。"
+        )
+
+    # 4. 数据源配置检查
+    if settings.primary_data_source == "tdx_local":
+        tdx_path = settings.tdx_data_dir
+        if not tdx_path or tdx_path == "./data/tdx":
+            warnings.append(
+                f"PRIMARY_DATA_SOURCE=tdx_local 但 TDX_DATA_DIR 似乎未正确配置。"
+                f"当前值: {tdx_path}。请确认通达信数据目录路径。"
+            )
+
+    return warnings
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
@@ -137,6 +178,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"端口: {settings.backend_port}")
     logger.info(f"数据源: {settings.primary_data_source} (主) / {settings.fallback_data_source} (备)")
     logger.info("=" * 60)
+
+    # 启动时配置校验
+    config_warnings = _validate_required_config()
+    if config_warnings:
+        logger.warning("─" * 60)
+        logger.warning("⚠️  配置检查发现以下问题：")
+        for i, w in enumerate(config_warnings, 1):
+            logger.warning(f"  [{i}] {w}")
+            logger.warning("─" * 60)
+        logger.warning("请编辑 .env 文件完成配置后重启服务。")
+        logger.warning("─" * 60)
 
     # 1. 初始化数据库
     await init_db()
