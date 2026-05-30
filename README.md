@@ -83,7 +83,7 @@ docker build -t stock-analysis -f Dockerfile .
 # 运行容器（.env 通过挂载注入）
 docker run -d --name stock-analysis \
   -p 8000:8000 \
-  -v /path/to/your/.env:/app/.env \
+  -v D:/docker/stock-analysis/.env:/app/.env \
   stock-analysis
 ```
 
