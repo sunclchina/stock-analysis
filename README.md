@@ -33,6 +33,9 @@
 cp .env.example .env
 ```
 
+> 📍 `.env` 唯一配置文件位于项目根目录，代码会自动从根目录读取。
+> 不要在后端子目录下创建 `.env`，那里不会被读取。
+
 ### 2. 安装依赖 & 启动
 
 ```powershell
@@ -56,7 +59,7 @@ python -m backend.main
 | 🟡 **推荐** | `DEEPSEEK_API_KEY` | DeepSeek AI 密钥 | AI 智能分析不可用，核心功能不受影响 | [DeepSeek 开放平台](https://platform.deepseek.com/) |
 | 🟡 **推荐** | `DEFAULT_ADMIN_PASSWORD` | 管理员密码 | 默认弱密码 `admin123`，安全风险 | 自行设置 |
 
-> - 编辑 `dev-team/backend-dev/stock-analysis-backend/.env` 文件完成配置
+> - 编辑项目根目录下的 `.env` 文件完成配置
 > - 编辑后重启服务生效
 
 ---

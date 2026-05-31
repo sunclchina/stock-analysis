@@ -3,10 +3,38 @@
 遵循原则②：禁止硬编码，所有配置项通过 .env 或系统环境变量注入。
 """
 
-from typing import List
-from pydantic_settings import BaseSettings
-from pydantic import Field, model_validator
 import json
+import os
+from typing import List
+
+from pydantic import Field, model_validator
+from pydantic_settings import BaseSettings
+
+
+def _resolve_env_file() -> str:
+    """
+    Resolve .env 路径。
+
+    原则：.env 唯一且位于项目根目录。
+
+    查找策略：
+    1. 从 settings.py 逐级向上查找 .env.example（根目录标记文件）
+    2. 如果没找到（如 Docker 场景），回退到 /app/.env
+    """
+    start = os.path.dirname(os.path.abspath(__file__))
+    current = start
+    for _ in range(10):
+        if os.path.exists(os.path.join(current, ".env.example")):
+            return os.path.join(current, ".env")
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    # Docker 回退：.env 在 WORKDIR /app 下
+    return os.path.join(os.path.dirname(os.path.dirname(start)), ".env")
+
+
+_ENV_FILE = _resolve_env_file()
 
 
 def _parse_cors(raw: str) -> List[str]:
@@ -111,7 +139,7 @@ class Settings(BaseSettings):
     # 日志
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
-    model_config = {"env_file": __file__.rsplit("backend", 1)[0] + ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+    model_config = {"env_file": _ENV_FILE, "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 # 全局单例
