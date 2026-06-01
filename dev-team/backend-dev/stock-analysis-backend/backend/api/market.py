@@ -682,8 +682,9 @@ def _build_overseas_section(overseas: Dict) -> str:
         nas_line = "，纳指隔夜收盘【待补充】"
     lines.append(dow_line + nas_line + "（备注：具体板块表现详见下文分析）；")
 
-    # ── A50 ──
-    lines.append("富时中国A50指数（隔夜）：【待补充】（反映外资对A股的预判，重点关注尾盘波动）；")
+    # ── A50（暂无直接数据源，用沪深300近似替代）──
+    indices_300 = overseas.get("csi300", {}).get("price") or overseas.get("沪深300", {}).get("change_pct")
+    lines.append("富时中国A50指数（隔夜）：【待补充，参考沪深300走势】（反映外资对A股的预判）；")
 
     # ── 汇率 ──
     fx = overseas.get("usd_cny", {})
@@ -694,16 +695,11 @@ def _build_overseas_section(overseas: Dict) -> str:
         lines.append("美元指数：【待补充】；人民币兑美元中间价：【待补充】，汇率【待补充】（影响北向资金流向及出口型企业）；")
 
     # ── 大宗商品 ──
-    # WTI
-    wti_price = overseas.get("wti_crude", {}).get("price")
-    # 布伦特
-    brent_price = overseas.get("brent_crude", {}).get("price")
-    # 黄金期货
-    gold_f_price = overseas.get("gold_futures", {}).get("price")
-    # 国际金价
-    gold_s_price = overseas.get("gold_spot", {}).get("price")
-
     items = []
+    wti_price = overseas.get("wti_crude", {}).get("price")
+    brent_price = overseas.get("brent_crude", {}).get("price")
+    gold_f_price = overseas.get("gold_futures", {}).get("price")
+    gold_s_price = overseas.get("gold_spot", {}).get("price")
     if wti_price:
         items.append(f"WTI原油{wti_price}美元/桶")
     if brent_price:
@@ -712,13 +708,11 @@ def _build_overseas_section(overseas: Dict) -> str:
         items.append(f"黄金期货{gold_f_price}元/克")
     if gold_s_price:
         items.append(f"国际金价{gold_s_price}美元/盎司")
-
     if items:
         lines.append("大宗商品：" + "、".join(items) + "（关联A股对应产业链板块）；")
     else:
         lines.append("大宗商品：原油（WTI）【待补充】、黄金【待补充】、有色（铜/铝等）整体偏【待补充】（关联A股对应产业链板块）；")
 
-    lines.append("简评：【待补充】")
     return "\n".join(lines)
 
 
