@@ -3,16 +3,72 @@
  * 从股票池中扫描符合K线形态的股票。
  * 支持多种形态：均线多头排列、金叉、放量突破、回踩支撑等。
  */
-import React, { useState } from 'react';
-import { Table, Button, Space, message, Card, Tag, Select, Radio, Typography, Row, Col } from 'antd';
-import { BranchesOutlined, SearchOutlined } from '@ant-design/icons';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Table, Button, Space, message, Card, Tag, Select, Radio, Typography, Row, Col, Modal, Descriptions, Divider, Spin, Tooltip } from 'antd';
+import { BranchesOutlined, SearchOutlined, StarOutlined, StarFilled, ReloadOutlined } from '@ant-design/icons';
+import { authFetch } from '../../services/auth';
+import { useConfigStore } from '../../store/configStore';
 import apiClient from '../../services/api';
-// 简单名称单元格（带K线悬浮，直接复用MarketResearch同名组件逻辑）
-const StockNameCell: React.FC<{ name: string; code: string; children?: React.ReactNode }> = ({ name, code, children }) => (
-  <span style={{ cursor: 'pointer', borderBottom: '1px dashed #d9d9d9' }}>{children || `${name}(${code})`}</span>
-);
 
 const { Text } = Typography;
+
+// ── K线图组件（可复用） ──
+const KLineChart: React.FC<{ data: any[] }> = ({ data }) => {
+  const chartRef = React.useRef<any>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!containerRef.current || data.length === 0) return;
+    import('echarts').then(echarts => {
+      if (chartRef.current) chartRef.current.dispose();
+      const chart = echarts.init(containerRef.current!);
+      chartRef.current = chart;
+      const kdata = data.map((k: any) => [
+        k.date || k.trade_date || '',
+        k.open !== undefined ? Number(k.open) : Number(k.open_price),
+        k.close !== undefined ? Number(k.close) : Number(k.close_price),
+        k.low !== undefined ? Number(k.low) : Number(k.low_price),
+        k.high !== undefined ? Number(k.high) : Number(k.high_price),
+        k.volume || 0,
+      ]);
+      const dates = kdata.map((d: any) => d[0]);
+      const values = kdata.map((d: any) => [d[1], d[2], d[3], d[4]]);
+      const volumes = kdata.map((d: any) => d[5]);
+      chart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+        grid: [
+          { left: '8%', right: '5%', top: '5%', height: '65%' },
+          { left: '8%', right: '5%', top: '78%', height: '15%' },
+        ],
+        xAxis: [
+          { type: 'category', data: dates, gridIndex: 0, axisLabel: { rotate: 30, fontSize: 10 } },
+          { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } },
+        ],
+        yAxis: [
+          { type: 'value', gridIndex: 0, scale: true, splitNumber: 5 },
+          { type: 'value', gridIndex: 1, splitNumber: 3 },
+        ],
+        series: [
+          { type: 'candlestick', data: values, xAxisIndex: 0, yAxisIndex: 0,
+            itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' } },
+          { type: 'bar', data: volumes, xAxisIndex: 1, yAxisIndex: 1,
+            itemStyle: { color: (params: any) => {
+              const idx = params.dataIndex;
+              const close = Number(data[idx]?.close || 0);
+              const open = Number(data[idx]?.open || 0);
+              return close >= open ? '#ef5350' : '#26a69a';
+            }}},
+        ],
+      });
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.dispose();
+      };
+    });
+  }, [data]);
+  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+};
 
 const PATTERN_OPTIONS = [
   { value: 'ma_bullish', label: '均线多头排列', desc: 'MA5 > MA10 > MA20 > MA60' },
@@ -35,6 +91,50 @@ const PatternSelectionTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any[]>([]);
   const [scanInfo, setScanInfo] = useState<{ pattern: string; source: string; count: number } | null>(null);
+  // 详情弹窗
+  const [detailStock, setDetailStock] = useState<any>(null);
+  const [klineData, setKlineData] = useState<any[]>([]);
+  const [klineLoading, setKlineLoading] = useState(false);
+
+  // K线数据加载
+  useEffect(() => {
+    if (!detailStock) { setKlineData([]); return; }
+    setKlineLoading(true);
+    fetch(`/api/v1/market/kline/${detailStock.code}?count=60`)
+      .then(r => r.json())
+      .then(d => setKlineData(d?.klines || []))
+      .catch(() => setKlineData([]))
+      .finally(() => setKlineLoading(false));
+  }, [detailStock]);
+
+  // 自选股
+  const { watchlist, addWatchlistItem, removeWatchlistItem } = useConfigStore();
+  const watchlistCodes = useMemo(() => new Set(watchlist.map((w) => w.code)), [watchlist]);
+
+  const handleWatchlistToggle = useCallback(
+    async (item: any) => {
+      const inWatchlist = watchlistCodes.has(item.code);
+      if (inWatchlist) {
+        try {
+          await authFetch(`/api/v1/config/watchlist/${item.code}`, { method: 'DELETE' });
+          removeWatchlistItem(item.code);
+          setData((prev) => prev.map((r) => r.code === item.code ? { ...r, addedToWatchlist: false } : r));
+          message.success(`已将 ${item.name} 移出自选股`);
+        } catch { message.error('操作失败'); }
+      } else {
+        try {
+          await authFetch('/api/v1/config/watchlist', {
+            method: 'POST',
+            body: JSON.stringify({ code: item.code, name: item.name }),
+          });
+          addWatchlistItem({ code: item.code, name: item.name, addedAt: new Date().toISOString() });
+          setData((prev) => prev.map((r) => r.code === item.code ? { ...r, addedToWatchlist: true } : r));
+          message.success(`已将 ${item.name} 加入自选股`);
+        } catch { message.error('操作失败'); }
+      }
+    },
+    [watchlistCodes, addWatchlistItem, removeWatchlistItem]
+  );
 
   const scan = async () => {
     setLoading(true);
@@ -66,11 +166,10 @@ const PatternSelectionTab: React.FC = () => {
 
   const cols = [
     { title: '序号', key: 'rank', width: 50, render: (_: any, __: any, i?: number) => (i ?? 0) + 1 },
-    { title: '代码', dataIndex: 'code', width: 90 },
-    {
-      title: '名称', dataIndex: 'name', width: 100,
-      render: (v: string, r: any) => <StockNameCell name={v} code={r.code}>{v}</StockNameCell>,
-    },
+    { title: '代码', dataIndex: 'code', width: 90,
+      render: (code: string, r: any) => <a onClick={() => setDetailStock(r)} style={{ fontWeight: 700, fontSize: 13 }}>{code}</a> },
+    { title: '名称', dataIndex: 'name', width: 100,
+      render: (v: string, r: any) => <a onClick={() => setDetailStock(r)} style={{ fontWeight: 600 }}>{v}</a> },
     { title: '最新价', dataIndex: 'price', width: 80, render: (v: any) => Number(v)?.toFixed(2) },
     { title: '涨幅', dataIndex: 'change_pct', width: 80, render: (v: any) => {
       if (v == null) return '-';
@@ -80,6 +179,16 @@ const PatternSelectionTab: React.FC = () => {
     { title: '形态描述', dataIndex: 'pattern_detail', render: (v: string) => (
       <Text style={{ fontSize: 12 }} ellipsis>{v || '-'}</Text>
     )},
+    { title: '操作', key: 'action', width: 70, fixed: 'right' as const,
+      render: (_: any, r: any) => {
+        const inWl = watchlistCodes.has(r.code);
+        return (
+          <Tooltip title={inWl ? '移出自选股' : '加入自选股'}>
+            <Button type="text" size="small" icon={inWl ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+              onClick={() => handleWatchlistToggle(r)} />
+          </Tooltip>
+        );
+      }},
   ];
 
   return (
@@ -148,6 +257,27 @@ const PatternSelectionTab: React.FC = () => {
           </div>
         </div>
       ) : null}
+
+      {/* 详情弹窗 */}
+      <Modal title={detailStock ? `${detailStock.code} ${detailStock.name}` : ''} open={!!detailStock}
+        onCancel={() => { setDetailStock(null); setKlineData([]); }} footer={null} width={700}
+        style={{ top: 20, maxWidth: 'calc(100vw - 32px)' }}>
+        {detailStock && <>
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered style={{ marginBottom: 16 }}>
+            <Descriptions.Item label="最新价">{detailStock.price != null ? Number(detailStock.price).toFixed(2) : '-'}</Descriptions.Item>
+            <Descriptions.Item label="涨幅">{detailStock.change_pct != null ? `${detailStock.change_pct > 0 ? '+' : ''}${Number(detailStock.change_pct).toFixed(2)}%` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="代码">{detailStock.code}</Descriptions.Item>
+            <Descriptions.Item label="名称">{detailStock.name}</Descriptions.Item>
+            <Descriptions.Item label="形态" span={2}>{detailStock.pattern_detail || '-'}</Descriptions.Item>
+          </Descriptions>
+          <Divider style={{ margin: '8px 0', fontSize: 13 }}>K线图</Divider>
+          <div style={{ width: '100%', height: 320 }}>
+            {klineLoading ? <div style={{ textAlign: 'center', paddingTop: 120 }}><Spin /></div>
+            : klineData.length > 0 ? <KLineChart data={klineData} />
+            : <Text type="secondary" style={{ display: 'block', textAlign: 'center', paddingTop: 120 }}>暂无K线数据</Text>}
+          </div>
+        </>}
+      </Modal>
     </div>
   );
 };
