@@ -47,8 +47,8 @@ class DataSourceManager:
     # 模块 → 数据源优先顺序映射（集中定义）
     MODULE_SOURCES: Dict[str, List[str]] = {
         # 市场行情
-        "market_quotes":      ["eastmoney", "sina", "tdx_local"],       # 批量/单只行情快照
-        "market_kline":       ["eastmoney", "sina", "baostock"],  # K线数据（东财→新浪→baostock）
+        "market_quotes":      ["sina", "eastmoney", "baostock"],       # 批量/单只行情快照（新浪最稳）
+        "market_kline":       ["sina", "baostock", "eastmoney"],  # K线数据（新浪最稳，东财最后兜底）
         "market_sector":      ["akshare", "eastmoney"],              # 板块涨跌
         "market_limit":       ["akshare", "eastmoney"],                 # 涨跌停家数/涨停股池
         "market_northbound":  ["akshare"],                              # 北向资金（仅akshare）
