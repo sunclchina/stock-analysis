@@ -28,6 +28,44 @@ test_response.json
 test_login_flow.js
 stock-analysis-20260508-run-cmd.txt
 
+# Workspace root temp scripts
+add_total*.py
+debug_*.py
+parse_*.py
+fix_marketresearch.py
+patch_debug.py
+quick_test.py
+restore_l4.py
+
+# Session/cookie temp artifacts
+gitea_*
+reg_*
+cookies*.txt
+ds_raw.txt
+
+# Empty/zero-byte artifacts
+BatchAnalysisTab.tsx
+
+# Duplicate partial backend copy
+backend-api/
+
+# Generated data
+data/
+
+# Dev-team debug scripts
+dev-team/debug_*.py
+dev-team/check_decision.py
+dev-team/_check_dashboard.py
+dev-team/_debug_monitor.py
+dev-team/dboard.json
+dev-team/decision.json
+dev-team/monitor_test.json
+dev-team/openapi.json
+
+# Other temp
+query
+0
+
 # Python cache
 __pycache__/
 *.pyc
