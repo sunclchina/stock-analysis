@@ -255,10 +255,10 @@ const FixedSelectionTab: React.FC = () => {
       render: (rank: number) => <Text strong style={{ color: rank <= 3 ? '#ff4d4f' : undefined }}>{rank}</Text> },
     { title: '代码', dataIndex: 'code', key: 'code', width: 100,
       render: (code: string, record: SelectionResultItem) => (
-        <a onClick={() => setDetailStock(record as StockDetail)} style={{ fontSize: 14, fontWeight: 700 }}>{code}</a>) },
+        <a onClick={() => setDetailStock(record as StockDetail)} style={{ fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#1677ff', textDecoration: 'underline' }}>{code}</a>) },
     { title: '名称', dataIndex: 'name', key: 'name', width: 110,
       render: (name: string, record: SelectionResultItem) => (
-        <a onClick={() => setDetailStock(record as StockDetail)} style={{ fontWeight: 600, fontSize: 13 }}>{name}</a>) },
+        <a onClick={() => setDetailStock(record as StockDetail)} style={{ fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#1677ff', textDecoration: 'underline' }}>{name}</a>) },
     { title: '行业', dataIndex: 'industry', key: 'industry', width: 100,
       render: (industry: string) => {
         if (!industry) return <Text type="secondary" style={{ fontSize: 11 }}>-</Text>;
