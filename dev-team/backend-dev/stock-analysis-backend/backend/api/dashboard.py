@@ -250,8 +250,15 @@ async def _get_watchlist_snapshot(db: AsyncSession) -> Dict[str, Any]:
 
 
 def _get_trading_session() -> Dict[str, Any]:
-    """获取当前交易时段类型和倒计时"""
-    now = datetime.now()
+    """获取当前交易时段类型和倒计时（使用北京时间 Asia/Shanghai）"""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("Asia/Shanghai")
+    except Exception:
+        # fallback：手工 UTC+8
+        from datetime import timezone, timedelta
+        tz = timezone(timedelta(hours=8))
+    now = datetime.now(tz)
     weekday = now.weekday()
     h, m, s = now.hour, now.minute, now.second
     current_sec = h * 3600 + m * 60 + s
@@ -266,24 +273,24 @@ def _get_trading_session() -> Dict[str, Any]:
 
     if weekday >= 5:  # 周六日
         return {"session": "weekend", "session_name": "休市(周末)", "countdown_seconds": 0,
-                "next_open": "周一 09:30"}
+                "next_open": "周一 09:30", "current_time": now.strftime("%Y-%m-%d %H:%M:%S")}
 
     if PRE_AUCTION_START <= current_sec < PRE_AUCTION_END:
         return {"session": "pre_open", "session_name": "集合竞价",
-                "countdown_seconds": PRE_AUCTION_END - current_sec, "next_open": ""}
+                "countdown_seconds": PRE_AUCTION_END - current_sec, "next_open": "", "current_time": now.strftime("%Y-%m-%d %H:%M:%S")}
     if MORNING_START <= current_sec < MORNING_END:
         return {"session": "morning", "session_name": "上午盘",
-                "countdown_seconds": MORNING_END - current_sec, "next_open": ""}
+                "countdown_seconds": MORNING_END - current_sec, "next_open": "", "current_time": now.strftime("%Y-%m-%d %H:%M:%S")}
     if AFTERNOON_START <= current_sec < AFTERNOON_END:
         return {"session": "afternoon", "session_name": "下午盘",
-                "countdown_seconds": AFTERNOON_END - current_sec, "next_open": ""}
+                "countdown_seconds": AFTERNOON_END - current_sec, "next_open": "", "current_time": now.strftime("%Y-%m-%d %H:%M:%S")}
     # 非交易时段
     if current_sec < MORNING_START:
         return {"session": "pre_market", "session_name": "盘前",
-                "countdown_seconds": MORNING_START - current_sec, "next_open": ""}
+                "countdown_seconds": MORNING_START - current_sec, "next_open": "", "current_time": now.strftime("%Y-%m-%d %H:%M:%S")}
     else:
         return {"session": "closed", "session_name": "已收盘",
-                "countdown_seconds": 0, "next_open": "下一个交易日 09:30"}
+                "countdown_seconds": 0, "next_open": "下一个交易日 09:30", "current_time": now.strftime("%Y-%m-%d %H:%M:%S")}
 
 
 async def _get_latest_analysis() -> Dict[str, Any]:

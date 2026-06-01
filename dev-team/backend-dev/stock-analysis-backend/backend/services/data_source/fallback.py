@@ -48,7 +48,7 @@ class DataSourceManager:
     MODULE_SOURCES: Dict[str, List[str]] = {
         # 市场行情
         "market_quotes":      ["eastmoney", "sina", "tdx_local"],       # 批量/单只行情快照
-        "market_kline":       ["baostock"],        # K线数据（baostock最稳定）
+        "market_kline":       ["eastmoney", "sina", "baostock"],  # K线数据（东财→新浪→baostock）
         "market_sector":      ["akshare", "eastmoney"],              # 板块涨跌
         "market_limit":       ["akshare", "eastmoney"],                 # 涨跌停家数/涨停股池
         "market_northbound":  ["akshare"],                              # 北向资金（仅akshare）

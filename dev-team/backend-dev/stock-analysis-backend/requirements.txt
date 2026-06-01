@@ -15,4 +15,5 @@ cachetools>=5.3.0
 psutil>=5.9.0  # 可选：系统状态监控
 python-jose[cryptography]>=3.3.0  # JWT 认证
 akshare  # 财经数据（行情、财务、新闻、交易日历）
+baostock>=0.9.0  # K线历史数据（备用数据源）
 bcrypt>=4.1.0  # 密码哈希
