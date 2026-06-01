@@ -1,7 +1,0 @@
-fix: 盘前提示-注入新浪美股/原油真实数据，关闭联网搜索避免AI数值幻觉
-
-- 新增 _collect_overseas_data(): 直连新浪API采集道指、纳指、WTI原油实时行情
-- 新增 OVERSEAS_SINA_CODES + _parse_sina_overseas_quote() 解析函数
-- 在 _call_premarket_analysis() 中将海外数据标记为【权威数据】注入AI prompt
-- 关闭联网搜索 (search=False)，避免AI用幻觉数据覆盖权威数据
-- A股指数也标记为权威数据
