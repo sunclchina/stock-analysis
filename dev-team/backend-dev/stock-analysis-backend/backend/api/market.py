@@ -582,21 +582,38 @@ async def _collect_overseas_data() -> Dict[str, Any]:
     except Exception as e:
         logger.warning(f"海外行情采集异常: {e}")
 
-    # 补充汇率数据 (美元/人民币)
+    # 补充汇率数据 (美元/人民币) 和估算美元指数
     try:
         _fx_headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
         async with httpx.AsyncClient(timeout=8, headers=_fx_headers) as fx_cli:
             fx_resp = await fx_cli.get("https://open.er-api.com/v6/latest/USD")
             if fx_resp.status_code == 200:
                 fx_data = fx_resp.json()
-                cny_rate = fx_data.get("rates", {}).get("CNY")
+                rates = fx_data.get("rates", {})
+                cny_rate = rates.get("CNY")
                 if cny_rate:
                     result["usd_cny"] = {
                         "price": str(cny_rate),
                         "name": "美元/人民币",
                     }
+                # 从6种主要货币估算美元指数 DXY
+                import math
+                eur = rates.get("EUR")
+                jpy = rates.get("JPY")
+                gbp = rates.get("GBP")
+                cad = rates.get("CAD")
+                sek = rates.get("SEK")
+                chf = rates.get("CHF")
+                if all(v is not None for v in [eur, jpy, gbp, cad, sek, chf]):
+                    eurusd = 1.0 / eur
+                    gbpusd = 1.0 / gbp
+                    dxy = 50.14348112 * math.pow(eurusd, -0.576) * math.pow(jpy, 0.136) * math.pow(gbpusd, -0.119) * math.pow(cad, 0.091) * math.pow(sek, 0.042) * math.pow(chf, 0.036)
+                    result["dxy"] = {
+                        "price": f"{dxy:.2f}",
+                        "name": "美元指数(估算)",
+                    }
     except Exception as e:
-        logger.warning(f"汇率采集失败: {e}")
+        logger.warning(f"汇率/DXY采集失败: {e}")
 
     return result
 
@@ -689,7 +706,10 @@ def _build_overseas_section(overseas: Dict) -> str:
     # ── 汇率 ──
     fx = overseas.get("usd_cny", {})
     fx_price = fx.get("price")
-    if fx_price:
+    dxy = overseas.get("dxy", {}).get("price")
+    if fx_price and dxy:
+        lines.append(f"美元指数：{dxy}，走势【偏强】；人民币兑美元中间价：{fx_price}，汇率【偏弱】（影响北向资金流向及出口型企业）；")
+    elif fx_price:
         lines.append(f"美元指数：【待补充】；人民币兑美元中间价：{fx_price}，汇率【偏弱】（影响北向资金流向及出口型企业）；")
     else:
         lines.append("美元指数：【待补充】；人民币兑美元中间价：【待补充】，汇率【待补充】（影响北向资金流向及出口型企业）；")
