@@ -1,14 +1,57 @@
+
+// KLineChart 组件
+const KLineChart: React.FC<{ data: any[] }> = ({ data }) => {
+  const chartRef = React.useRef<any>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!containerRef.current || data.length === 0) return;
+    import('echarts').then(echarts => {
+      if (chartRef.current) chartRef.current.dispose();
+      const chart = echarts.init(containerRef.current!);
+      chartRef.current = chart;
+      const kdata = data.map((k: any) => [k.date || k.trade_date || '',
+        k.open !== undefined ? Number(k.open) : Number(k.open_price),
+        k.close !== undefined ? Number(k.close) : Number(k.close_price),
+        k.low !== undefined ? Number(k.low) : Number(k.low_price),
+        k.high !== undefined ? Number(k.high) : Number(k.high_price),
+        k.volume || 0]);
+      const dates = kdata.map((d: any) => d[0]);
+      const values = kdata.map((d: any) => [d[1], d[2], d[3], d[4]]);
+      const volumes = kdata.map((d: any) => d[5]);
+      chart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+        grid: [{ left: '8%', right: '5%', top: '5%', height: '65%' }, { left: '8%', right: '5%', top: '78%', height: '15%' }],
+        xAxis: [{ type: 'category', data: dates, gridIndex: 0, axisLabel: { rotate: 30, fontSize: 10 } },
+                { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } }],
+        yAxis: [{ type: 'value', gridIndex: 0, scale: true }, { type: 'value', gridIndex: 1 }],
+        series: [
+          { type: 'candlestick', data: values, xAxisIndex: 0, yAxisIndex: 0,
+            itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' } },
+          { type: 'bar', data: volumes, xAxisIndex: 1, yAxisIndex: 1,
+            itemStyle: { color: (p: any) => Number(data[p.dataIndex]?.close || 0) >= Number(data[p.dataIndex]?.open || 0) ? '#ef5350' : '#26a69a' } },
+        ],
+      });
+      const hr = () => chart.resize();
+      window.addEventListener('resize', hr);
+      return () => { window.removeEventListener('resize', hr); chart.dispose(); };
+    });
+  }, [data]);
+  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+};
+
 /**
  * M04 智能选股 - 指标选股标签页
  * 双模式：热门策略（标签式紧凑布局）+ 自定义策略
  */
-import React, { useState, useEffect } from 'react';
-import { Table, Input, Button, Space, message, Modal, Form, Radio, Typography, Empty, Tooltip, Tag, Row, Col, Divider } from 'antd';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Table, Input, Button, Space, message, Modal, Form, Radio, Typography, Empty, Tooltip, Tag, Row, Col, Divider, Spin, Descriptions } from 'antd';
 import {
   ThunderboltOutlined, PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined,
-  FireOutlined, SearchOutlined, DownOutlined, UpOutlined,
+  FireOutlined, SearchOutlined, DownOutlined, UpOutlined, StarOutlined, StarFilled,
 } from '@ant-design/icons';
 import { fetchIndicatorSelection } from '../../services/marketResearchApi';
+import { authFetch } from '../../services/auth';
+import { useConfigStore } from '../../store/configStore';
 import apiClient from '../../services/api';
 
 const { Text } = Typography;
@@ -55,6 +98,46 @@ const IndicatorSelectionTab: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm] = Form.useForm();
+  // K线详情弹窗
+  const [detailStock, setDetailStock] = useState<any>(null);
+  const [klineData, setKlineData] = useState<any[]>([]);
+  const [klineLoading, setKlineLoading] = useState(false);
+  // 自选股
+  const { watchlist, addWatchlistItem, removeWatchlistItem } = useConfigStore();
+  const watchlistCodes = useMemo(() => new Set(watchlist.map((w) => w.code)), [watchlist]);
+
+  // K线数据加载
+  useEffect(() => {
+    if (!detailStock) { setKlineData([]); return; }
+    setKlineLoading(true);
+    const code = detailStock.SECURITY_CODE || detailStock.code || '';
+    fetch(`/api/v1/market/kline/${code}?count=60`)
+      .then(r => r.json())
+      .then(d => setKlineData(d?.klines || []))
+      .catch(() => setKlineData([]))
+      .finally(() => setKlineLoading(false));
+  }, [detailStock]);
+
+  const handleWatchlistToggle = useCallback(async (item: any) => {
+    const code = item.SECURITY_CODE || item.code || '';
+    const name = item.SECURITY_SHORT_NAME || item.name || '';
+    const inWl = watchlistCodes.has(code);
+    if (inWl) {
+      try {
+        await authFetch(`/api/v1/config/watchlist/${code}`, { method: 'DELETE' });
+        removeWatchlistItem(code);
+        message.success(`已移出自选股: ${name}`);
+      } catch { message.error('操作失败'); }
+    } else {
+      try {
+        await authFetch('/api/v1/config/watchlist', {
+          method: 'POST', body: JSON.stringify({ code, name }),
+        });
+        addWatchlistItem({ code, name, addedAt: new Date().toISOString() });
+        message.success(`已加入自选股: ${name}`);
+      } catch { message.error('操作失败'); }
+    }
+  }, [watchlistCodes, addWatchlistItem, removeWatchlistItem]);
 
   useEffect(() => {
     apiClient.get('/config/preferences/hot_strategies').then((res: any) => {
@@ -84,8 +167,38 @@ const IndicatorSelectionTab: React.FC = () => {
       if (result?.dataList) {
         const colDefs = (result.columns || []).map((c: any) => ({
           title: c.title || c.key, dataIndex: c.key, width: 100,
-          render: (v: any) => typeof v === 'number' ? (v > 100 ? v.toFixed(0) : v.toFixed(2)) : String(v || ''),
+          render: (v: any, record: any) => {
+            // 代码列：可点击弹详情
+            if (c.key === 'SECURITY_CODE') {
+              return <a onClick={() => setDetailStock(record)} style={{ cursor: 'pointer', color: '#1677ff', textDecoration: 'underline', fontWeight: 700 }}>{v}</a>;
+            }
+            // 名称列：可点击弹详情
+            if (c.key === 'SECURITY_SHORT_NAME') {
+              return <a onClick={() => setDetailStock(record)} style={{ cursor: 'pointer', color: '#1677ff', textDecoration: 'underline' }}>{v}</a>;
+            }
+            // 涨跌幅列：红绿色
+            if (c.key === 'CHG' || (c.title || '').includes('涨幅')) {
+              const num = Number(v);
+              if (isNaN(num)) return String(v || '');
+              return <span style={{ color: num >= 0 ? '#cf1322' : '#389e0d', fontWeight: 600 }}>{num > 0 ? '+' : ''}{num.toFixed(2)}%</span>;
+            }
+            return typeof v === 'number' ? (v > 100 ? v.toFixed(0) : v.toFixed(2)) : String(v || '');
+          },
         }));
+        // 追加操作列
+        colDefs.push({
+          title: '操作', key: 'action', width: 70, fixed: 'right' as const,
+          render: (_: any, record: any) => {
+            const code = record.SECURITY_CODE || '';
+            const inWl = watchlistCodes.has(code);
+            return (
+              <Tooltip title={inWl ? '移出自选股' : '加入自选股'}>
+                <Button type="text" size="small" icon={inWl ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+                  onClick={(e) => { e.stopPropagation(); handleWatchlistToggle(record); }} />
+              </Tooltip>
+            );
+          },
+        });
         setCols([{ title: '排名', key: 'rank', width: 50, render: (_: any, __: any, i?: number) => i! + 1 }, ...colDefs]);
         setData(result.dataList);
       } else {
@@ -275,6 +388,27 @@ const IndicatorSelectionTab: React.FC = () => {
             <Input.TextArea rows={5} placeholder="输入选股条件，多个条件用;分隔" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 详情弹窗 */}
+      <Modal title={detailStock ? `${detailStock.SECURITY_CODE || ''} ${detailStock.SECURITY_SHORT_NAME || ''}` : ''}
+        open={!!detailStock} onCancel={() => { setDetailStock(null); setKlineData([]); }}
+        footer={null} width={700} style={{ top: 20, maxWidth: 'calc(100vw - 32px)' }}>
+        {detailStock && <>
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered style={{ marginBottom: 16 }}>
+            <Descriptions.Item label="代码">{detailStock.SECURITY_CODE || '-'}</Descriptions.Item>
+            <Descriptions.Item label="名称">{detailStock.SECURITY_SHORT_NAME || '-'}</Descriptions.Item>
+            <Descriptions.Item label="最新价">{detailStock.NEWEST_PRICE != null ? Number(detailStock.NEWEST_PRICE).toFixed(2) : '-'}</Descriptions.Item>
+            <Descriptions.Item label="涨幅">{detailStock.CHG != null ? `${Number(detailStock.CHG) > 0 ? '+' : ''}${Number(detailStock.CHG).toFixed(2)}%` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="行业" span={2}>{detailStock.INDUSTRY || '-'}</Descriptions.Item>
+          </Descriptions>
+          <Divider style={{ margin: '8px 0', fontSize: 13 }}>K线图</Divider>
+          <div style={{ width: '100%', height: 320 }}>
+            {klineLoading ? <div style={{ textAlign: 'center', paddingTop: 120 }}><Spin /></div>
+            : klineData.length > 0 ? <KLineChart data={klineData} />
+            : <Text type="secondary" style={{ display: 'block', textAlign: 'center', paddingTop: 120 }}>暂无K线数据</Text>}
+          </div>
+        </>}
       </Modal>
     </div>
   );
