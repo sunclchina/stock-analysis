@@ -118,6 +118,10 @@ class Settings(BaseSettings):
     )
     deepseek_model: str = Field(default="deepseek-chat", alias="DEEPSEEK_MODEL")
 
+    # Alpha Vantage 外围市场数据（免费，25次/天）
+    # 注册：https://www.alphavantage.co/support/#api-key
+    alpha_vantage_api_key: str = Field(default="", alias="ALPHA_VANTAGE_API_KEY")
+
     # 用户认证
     jwt_secret: str = Field(default="", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")

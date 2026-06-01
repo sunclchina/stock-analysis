@@ -610,7 +610,7 @@ async def _collect_overseas_data() -> Dict[str, Any]:
                     dxy = 50.14348112 * math.pow(eurusd, -0.576) * math.pow(jpy, 0.136) * math.pow(gbpusd, -0.119) * math.pow(cad, 0.091) * math.pow(sek, 0.042) * math.pow(chf, 0.036)
                     result["dxy"] = {
                         "price": f"{dxy:.2f}",
-                        "name": "美元指数(估算)",
+                        "name": "美元指数",
                     }
     except Exception as e:
         logger.warning(f"汇率/DXY采集失败: {e}")
