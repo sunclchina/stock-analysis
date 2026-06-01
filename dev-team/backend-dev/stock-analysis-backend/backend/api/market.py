@@ -20,7 +20,7 @@ import os
 import re
 import asyncio
 import httpx
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
@@ -505,10 +505,89 @@ async def get_kline(
 # ─── 盘前提示（集成AI分析引擎）──────────────────
 
 
+OVERSEAS_SINA_CODES = {
+    "dow_jones":       {"sina": "gb_dji",    "name": "道琼斯", "type": "index"},
+    "nasdaq":          {"sina": "gb_ixic",   "name": "纳斯达克", "type": "index"},
+    "wti_crude":       {"sina": "hf_CL",     "name": "WTI原油", "type": "future"},
+}
+
+
+def _parse_sina_overseas_quote(text: str, data_type: str = "index") -> Optional[Dict[str, Any]]:
+    """解析新浪海外指数/期货行情响应"""
+    if not text:
+        return None
+    try:
+        parts = text.split('"')
+        if len(parts) < 2:
+            return None
+        values = parts[1].split(",")
+        if not values or not values[0]:
+            return None
+        if data_type == "future":
+            # hf_CL 格式: 最新价,涨跌额,开盘,最高,最低,昨收,时间,前收盘,...
+            return {"price": values[0] if values[0] else None,
+                    "change": values[1] if len(values) > 1 and values[1] else None,
+                    "name": "WTI原油"}
+        else:
+            # gb_xxx 指数格式: 名称,最新价,涨跌幅%,更新时间,涨跌额,昨收,最高,最低,今开,...
+            return {"name": values[0],
+                    "price": values[1] if len(values) > 1 and values[1] else None,
+                    "change_pct": values[2] if len(values) > 2 and values[2] else None}
+    except (ValueError, IndexError):
+        return None
+
+
+async def _collect_overseas_data() -> Dict[str, Any]:
+    """
+    采集外围市场真实行情数据（美股指数、商品等）。
+    通过新浪财经 API 直连获取，不经过 AI 幻觉。
+    """
+    sina_codes = [info["sina"] for info in OVERSEAS_SINA_CODES.values()]
+    url = f"https://hq.sinajs.cn/list={','.join(sina_codes)}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://finance.sina.com.cn/",
+    }
+
+    result = {}
+    try:
+        async with httpx.AsyncClient(timeout=10, headers=headers) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                logger.warning(f"海外行情采集失败: HTTP {resp.status_code}")
+                return result
+            lines = resp.text.strip().split("\n")
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                m = re.search(r'var\s+hq_str_(\w+)="(.+)"', line)
+                if not m:
+                    continue
+                var_name = m.group(1)
+                for key, info in OVERSEAS_SINA_CODES.items():
+                    if info["sina"] == var_name:
+                        parsed = _parse_sina_overseas_quote(line, info.get("type", "index"))
+                        if parsed:
+                            result[key] = parsed
+                        break
+    except Exception as e:
+        logger.warning(f"海外行情采集异常: {e}")
+
+    return result
+
+
 async def _call_premarket_analysis(market_data: Dict) -> Dict:
-    """调用AI分析引擎+联网搜索生成盘前提示"""
+    """调用AI分析引擎生成盘前提示（注入真实外围数据）"""
     try:
         from backend.services.analysis_engine import LLMClient
+
+        # 采集外围市场真实数据
+        overseas = await _collect_overseas_data()
+        # 标记数据来源，AI需优先使用【权威数据】
+        for key in overseas:
+            overseas[key]["_source"] = "权威数据"
+        market_data["overseas"] = overseas
 
         # 读取当前默认模板
         template_content = _read_default_template()
@@ -518,17 +597,22 @@ async def _call_premarket_analysis(market_data: Dict) -> Dict:
         system_prompt = f"""你是专业的A股盘前分析助手。
 
 用户提供了一个盘前提示模板，你需要：
-1. 使用联网搜索获取最新的A股相关数据（指数行情、外围市场、政策新闻、板块热点等）
-2. 按照以下模板结构，用真实数据填充每个字段
-3. 保持一/二/三/四/五的五大板块标题结构不变
-4. 对于无法获取的具体数据，根据已有数据给出合理估算
+1. 严格按照下方「权威行情数据」中标注为【权威数据】的字段填写数值部分，禁止自行编造任何数字
+2. 基于你训练数据中的知识，补充A股相关新闻、政策、板块热点
+3. 按照以下模板结构，用真实数据填充每个字段
+4. 保持一/二/三/四/五的五大板块标题结构不变
+
+⚠️ 重要规则：
+- 【权威数据】标记的字段必须原样使用，不得修改数字
+- 缺少的数据项（如A50、美元指数、汇率等）可以根据你的知识合理估算，但需注明
+- 模板中所有占位符必须填充完整
 
 模板内容：
 ```
 {template_content}
 ```
 
-当前时间和指数参考数据：
+=== 权威行情数据（【权威数据】标记的字段禁止修改）===
 ```json
 {json.dumps(market_data, ensure_ascii=False, default=str)}
 ```
@@ -538,7 +622,6 @@ async def _call_premarket_analysis(market_data: Dict) -> Dict:
 - 保留五大板块标题（一、到五、）不变
 - **不要使用Markdown标记符号**如 *、**、>、- 等列表符号
 - 每个字段一行，用简洁的段落文字描述
-- 数字和百分比直接写，不要加 ** 或 ↑↓ 符号
 - 使用【】保留分类标记如【主线】【风险】
 - 整体风格：简洁、清晰、易读，像一份正式的报告
 """
@@ -548,7 +631,7 @@ async def _call_premarket_analysis(market_data: Dict) -> Dict:
             messages=[{"role": "system", "content": system_prompt}],
             temperature=0.3,
             max_tokens=4096,
-            search=True,  # 启用联网搜索
+            search=False,  # 关闭联网搜索，外围数据全部由 _collect_overseas_data() 提供权威数据
         )
         return result
     except Exception as e:
@@ -1268,7 +1351,7 @@ async def premarket_overview():
     # 首次访问今日才生成
     indices_data = await _collect_indices()
     ai_result = await _call_premarket_analysis({
-        "indices": indices_data,
+        "indices": [{"source": "权威数据", **i} for i in indices_data],
         "timestamp": now,
     })
 
@@ -1306,7 +1389,7 @@ async def generate_premarket():
     now = datetime.now().isoformat()
 
     ai_result = await _call_premarket_analysis({
-        "indices": indices_data,
+        "indices": [{"source": "权威数据", **i} for i in indices_data],
         "timestamp": now,
     })
 
