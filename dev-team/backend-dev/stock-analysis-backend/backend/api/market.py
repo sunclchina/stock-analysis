@@ -577,53 +577,47 @@ async def _collect_overseas_data() -> Dict[str, Any]:
     return result
 
 
-async def _call_premarket_analysis(market_data: Dict) -> Dict:
-    """调用AI分析引擎生成盘前提示（注入真实外围数据）"""
+async def _call_premarket_analysis(market_data: Dict, overseas_section: str = None) -> Dict:
+    """调用AI分析引擎生成盘前提示（外围市场小节由Python填入真实数据）"""
     try:
         from backend.services.analysis_engine import LLMClient
-
-        # 采集外围市场真实数据
-        overseas = await _collect_overseas_data()
-        # 标记数据来源，AI需优先使用【权威数据】
-        for key in overseas:
-            overseas[key]["_source"] = "权威数据"
-        market_data["overseas"] = overseas
 
         # 读取当前默认模板
         template_content = _read_default_template()
         if not template_content:
             template_content = "A股盘前提示模板（包含五大板块：外围市场、重要消息、指数预判、热点方向、操作策略）"
 
+        # 构建 AI 提示：外围市场小节已由Python预填充，AI只写二到五
+        if overseas_section:
+            section_hint = f"""
+【重要】「外围市场概况」已由系统使用真实数据填充如下，你**必须原样保留**这段内容，
+不得修改其中的任何数字或文字。此段已作为最终输出的一、部分。
+
+{overseas_section}
+
+请直接从「二、重要消息与政策」开始输出，不要重复输出一、部分。
+"""
+        else:
+            section_hint = ""
+
         system_prompt = f"""你是专业的A股盘前分析助手。
 
-用户提供了一个盘前提示模板，你需要：
-1. 严格按照下方「权威行情数据」中标注为【权威数据】的字段填写数值部分，禁止自行编造任何数字
-2. 基于你训练数据中的知识，补充A股相关新闻、政策、板块热点
-3. 按照以下模板结构，用真实数据填充每个字段
-4. 保持一/二/三/四/五的五大板块标题结构不变
+{section_hint}
 
-⚠️ 重要规则：
-- 【权威数据】标记的字段必须原样使用，不得修改数字
-- 缺少的数据项（如A50、美元指数、汇率等）可以根据你的知识合理估算，但需注明
-- 模板中所有占位符必须填充完整
+用户提供了一份盘前提示模板，请基于你的知识填充以下内容。
 
-模板内容：
-```
-{template_content}
-```
-
-=== 权威行情数据（【权威数据】标记的字段禁止修改）===
-```json
-{json.dumps(market_data, ensure_ascii=False, default=str)}
-```
-
-格式要求（非常重要）：
-- 所有占位符（___、待补充、【利好/中性/利空】等）都必须用真实数据填充
-- 保留五大板块标题（一、到五、）不变
-- **不要使用Markdown标记符号**如 *、**、>、- 等列表符号
+格式要求：
+- 先输出「二、重要消息与政策」，再依次输出「三、指数技术面预判」「四、热点方向跟踪」「五、操作策略建议」
+- 保留模板标题（二、到五、）不变
+- 不要使用Markdown标记符号
 - 每个字段一行，用简洁的段落文字描述
 - 使用【】保留分类标记如【主线】【风险】
-- 整体风格：简洁、清晰、易读，像一份正式的报告
+- 整体风格：简洁、清晰、易读
+
+A股指数参考数据：
+```json
+{json.dumps(market_data.get("indices", []), ensure_ascii=False, default=str)}
+```
 """
 
         client = LLMClient()
@@ -631,12 +625,57 @@ async def _call_premarket_analysis(market_data: Dict) -> Dict:
             messages=[{"role": "system", "content": system_prompt}],
             temperature=0.3,
             max_tokens=4096,
-            search=False,  # 关闭联网搜索，外围数据全部由 _collect_overseas_data() 提供权威数据
+            search=False,
         )
         return result
     except Exception as e:
         logger.error(f"AI盘前提示生成失败: {e}")
         return {"success": False, "error": str(e)}
+
+
+def _build_overseas_section(overseas: Dict) -> str:
+    """
+    用Python将外围市场真实数据填入「外围市场概况」小节，
+    返回不可由AI修改的固定文本。
+    """
+    lines = []
+    lines.append("一、外围市场概况（影响A股开盘情绪，重点跟踪核心指标）")
+
+    # 美股
+    dj = overseas.get("dow_jones", {})
+    nq = overseas.get("nasdaq", {})
+    dow_pct = dj.get("change_pct", "")
+    nas_pct = nq.get("change_pct", "")
+    if dow_pct is not None:
+        dow_dir = "上涨" if float(dow_pct) >= 0 else "下跌"
+        dow_line = f"美股：道指隔夜收盘{dow_dir}{abs(float(dow_pct)):.2f}%"
+    else:
+        dow_line = "美股：道指隔夜收盘【待补充】"
+    if nas_pct is not None:
+        nas_dir = "上涨" if float(nas_pct) >= 0 else "下跌"
+        nas_line = f"，纳指隔夜收盘{nas_dir}{abs(float(nas_pct)):.2f}%"
+    else:
+        nas_line = "，纳指隔夜收盘【待补充】"
+    lines.append(dow_line + nas_line + "（备注：具体板块表现详见下文分析）；")
+
+    # A50 - 无数据源，留空让AI补充
+    lines.append("富时中国A50指数（隔夜）：【待补充】（反映外资对A股的预判，重点关注尾盘波动）；")
+
+    # 美元指数/人民币 - 无数据源
+    lines.append("美元指数：【待补充】，走势【待补充】；人民币兑美元中间价：【待补充】，汇率【待补充】（影响北向资金流向及出口型企业）；")
+
+    # 大宗商品
+    wti = overseas.get("wti_crude", {})
+    wti_price = wti.get("price", "")
+    if wti_price:
+        lines.append(f"大宗商品：原油（WTI）{wti_price}美元/桶（具体涨跌幅详见下文分析）、黄金【待补充】、有色（铜/铝等）整体偏【待补充】（关联A股对应产业链板块）；")
+    else:
+        lines.append("大宗商品：原油（WTI）【待补充】、黄金【待补充】、有色（铜/铝等）整体偏【待补充】（关联A股对应产业链板块）；")
+
+    # 简评 - 让AI写
+    lines.append("简评：【待补充】")
+
+    return "\n".join(lines)
 
 
 def _read_default_template() -> str:
@@ -807,11 +846,13 @@ def _fill_template(template_text: str, indices_data: list, today: str, weekday_c
     return result
 
 
-async def _build_premarket_tip(indices_data: list, generated_at: str, is_ai: bool, ai_content: str = None) -> dict:
+async def _build_premarket_tip(indices_data: list, generated_at: str, is_ai: bool, ai_content: str = None, overseas_section: str = None) -> dict:
     """
     从系统设置中的默认盘前提示模板文件读取结构，填充实时数据后生成盘前提示。
     五大板块：外围市场、重要消息、指数预判、热点方向、操作策略。
     自动从东方财富获取板块涨跌和北向资金数据。
+    
+    overseas_section: 由 Python 预填充的外围市场数据块（AI模式下前置）
     """
     today = datetime.now().strftime("%Y-%m-%d")
     weekday_cn = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][datetime.now().weekday()]
@@ -850,6 +891,9 @@ async def _build_premarket_tip(indices_data: list, generated_at: str, is_ai: boo
             ai_sections.append({"title": ai_titles[ci], "content": "\n".join(cl).strip()})
         if not ai_sections:
             ai_sections = [{"title": "AI盘前提示", "content": cleaned.strip()}]
+        # 如果提供了预填充的外围市场数据，前置为第一段
+        if overseas_section:
+            ai_sections.insert(0, {"title": "外围市场概况", "content": overseas_section})
         return {"date": today, "marketPrediction": cleaned.strip(), "keyLevels": "",
             "sectorRecommendations": [], "riskTips": [], "updatedAt": generated_at,
             "dataSource": "AI", "generatedAt": generated_at, "sections": ai_sections}
@@ -1350,17 +1394,19 @@ async def premarket_overview():
 
     # 首次访问今日才生成
     indices_data = await _collect_indices()
+    overseas_data = await _collect_overseas_data()
+    overseas_section = _build_overseas_section(overseas_data)
     ai_result = await _call_premarket_analysis({
         "indices": [{"source": "权威数据", **i} for i in indices_data],
         "timestamp": now,
-    })
+    }, overseas_section=overseas_section)
 
     try:
         if ai_result.get("success"):
-            tip = await _build_premarket_tip(indices_data, now, is_ai=True, ai_content=ai_result["content"])
+            tip = await _build_premarket_tip(indices_data, now, is_ai=True, ai_content=ai_result["content"], overseas_section=overseas_section)
             tip["_ai"] = True
         else:
-            tip = await _build_premarket_tip(indices_data, now, is_ai=False)
+            tip = await _build_premarket_tip(indices_data, now, is_ai=False, overseas_section=overseas_section)
             tip["_ai"] = False
         _save_premarket_cache(tip)
     except Exception as e:
@@ -1387,16 +1433,18 @@ async def generate_premarket():
     """
     indices_data = await _collect_indices()
     now = datetime.now().isoformat()
+    overseas_data = await _collect_overseas_data()
+    overseas_section = _build_overseas_section(overseas_data)
 
     ai_result = await _call_premarket_analysis({
         "indices": [{"source": "权威数据", **i} for i in indices_data],
         "timestamp": now,
-    })
+    }, overseas_section=overseas_section)
 
     if ai_result.get("success"):
-        tip = await _build_premarket_tip(indices_data, now, is_ai=True, ai_content=ai_result["content"])
+        tip = await _build_premarket_tip(indices_data, now, is_ai=True, ai_content=ai_result["content"], overseas_section=overseas_section)
     else:
-        tip = await _build_premarket_tip(indices_data, now, is_ai=False)
+        tip = await _build_premarket_tip(indices_data, now, is_ai=False, overseas_section=overseas_section)
 
     tip["_ai"] = ai_result.get("success", False)
     _save_premarket_cache(tip)  # 覆盖今日缓存
