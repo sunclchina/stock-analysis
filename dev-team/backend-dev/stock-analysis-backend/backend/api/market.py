@@ -20,7 +20,7 @@ import os
 import re
 import asyncio
 import httpx
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Any
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
@@ -509,10 +509,13 @@ OVERSEAS_SINA_CODES = {
     "dow_jones":       {"sina": "gb_dji",    "name": "道琼斯", "type": "index"},
     "nasdaq":          {"sina": "gb_ixic",   "name": "纳斯达克", "type": "index"},
     "wti_crude":       {"sina": "hf_CL",     "name": "WTI原油", "type": "future"},
+    "brent_crude":     {"sina": "hf_OIL",    "name": "布伦特原油", "type": "future"},
+    "gold_futures":    {"sina": "hf_GC",     "name": "黄金期货", "type": "future"},
+    "gold_spot":       {"sina": "hf_XAU",    "name": "国际金价", "type": "future_spot"},
 }
 
 
-def _parse_sina_overseas_quote(text: str, data_type: str = "index") -> Optional[Dict[str, Any]]:
+def _parse_sina_overseas_quote(text: str, data_type: str = "index", name: str = "") -> Optional[Dict[str, Any]]:
     """解析新浪海外指数/期货行情响应"""
     if not text:
         return None
@@ -524,10 +527,15 @@ def _parse_sina_overseas_quote(text: str, data_type: str = "index") -> Optional[
         if not values or not values[0]:
             return None
         if data_type == "future":
-            # hf_CL 格式: 最新价,涨跌额,开盘,最高,最低,昨收,时间,前收盘,...
+            # hf_CL/hf_OIL/hf_GC 格式: 最新价,涨跌额,开盘,最高,最低,昨收,时间,前收盘,...
             return {"price": values[0] if values[0] else None,
                     "change": values[1] if len(values) > 1 and values[1] else None,
-                    "name": "WTI原油"}
+                    "name": name or "WTI原油"}
+        elif data_type == "future_spot":
+            # hf_XAU 现货格式: 最新价,昨收,开盘,最高,最低,时间,前收盘,...
+            return {"price": values[0] if values[0] else None,
+                    "prev_close": values[1] if len(values) > 1 and values[1] else None,
+                    "name": name or "国际金价"}
         else:
             # gb_xxx 指数格式: 名称,最新价,涨跌幅%,更新时间,涨跌额,昨收,最高,最低,今开,...
             return {"name": values[0],
@@ -567,12 +575,28 @@ async def _collect_overseas_data() -> Dict[str, Any]:
                 var_name = m.group(1)
                 for key, info in OVERSEAS_SINA_CODES.items():
                     if info["sina"] == var_name:
-                        parsed = _parse_sina_overseas_quote(line, info.get("type", "index"))
+                        parsed = _parse_sina_overseas_quote(line, info.get("type", "index"), info.get("name", ""))
                         if parsed:
                             result[key] = parsed
                         break
     except Exception as e:
         logger.warning(f"海外行情采集异常: {e}")
+
+    # 补充汇率数据 (美元/人民币)
+    try:
+        _fx_headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+        async with httpx.AsyncClient(timeout=8, headers=_fx_headers) as fx_cli:
+            fx_resp = await fx_cli.get("https://open.er-api.com/v6/latest/USD")
+            if fx_resp.status_code == 200:
+                fx_data = fx_resp.json()
+                cny_rate = fx_data.get("rates", {}).get("CNY")
+                if cny_rate:
+                    result["usd_cny"] = {
+                        "price": str(cny_rate),
+                        "name": "美元/人民币",
+                    }
+    except Exception as e:
+        logger.warning(f"汇率采集失败: {e}")
 
     return result
 
@@ -641,40 +665,60 @@ def _build_overseas_section(overseas: Dict) -> str:
     lines = []
     lines.append("一、外围市场概况（影响A股开盘情绪，重点跟踪核心指标）")
 
-    # 美股
+    # ── 美股 ──
     dj = overseas.get("dow_jones", {})
     nq = overseas.get("nasdaq", {})
-    dow_pct = dj.get("change_pct", "")
-    nas_pct = nq.get("change_pct", "")
-    if dow_pct is not None:
+    dow_pct = dj.get("change_pct")
+    nas_pct = nq.get("change_pct")
+    if dow_pct is not None and dow_pct != "":
         dow_dir = "上涨" if float(dow_pct) >= 0 else "下跌"
         dow_line = f"美股：道指隔夜收盘{dow_dir}{abs(float(dow_pct)):.2f}%"
     else:
         dow_line = "美股：道指隔夜收盘【待补充】"
-    if nas_pct is not None:
+    if nas_pct is not None and nas_pct != "":
         nas_dir = "上涨" if float(nas_pct) >= 0 else "下跌"
         nas_line = f"，纳指隔夜收盘{nas_dir}{abs(float(nas_pct)):.2f}%"
     else:
         nas_line = "，纳指隔夜收盘【待补充】"
     lines.append(dow_line + nas_line + "（备注：具体板块表现详见下文分析）；")
 
-    # A50 - 无数据源，留空让AI补充
+    # ── A50 ──
     lines.append("富时中国A50指数（隔夜）：【待补充】（反映外资对A股的预判，重点关注尾盘波动）；")
 
-    # 美元指数/人民币 - 无数据源
-    lines.append("美元指数：【待补充】，走势【待补充】；人民币兑美元中间价：【待补充】，汇率【待补充】（影响北向资金流向及出口型企业）；")
+    # ── 汇率 ──
+    fx = overseas.get("usd_cny", {})
+    fx_price = fx.get("price")
+    if fx_price:
+        lines.append(f"美元指数：【待补充】；人民币兑美元中间价：{fx_price}，汇率【偏弱】（影响北向资金流向及出口型企业）；")
+    else:
+        lines.append("美元指数：【待补充】；人民币兑美元中间价：【待补充】，汇率【待补充】（影响北向资金流向及出口型企业）；")
 
-    # 大宗商品
-    wti = overseas.get("wti_crude", {})
-    wti_price = wti.get("price", "")
+    # ── 大宗商品 ──
+    # WTI
+    wti_price = overseas.get("wti_crude", {}).get("price")
+    # 布伦特
+    brent_price = overseas.get("brent_crude", {}).get("price")
+    # 黄金期货
+    gold_f_price = overseas.get("gold_futures", {}).get("price")
+    # 国际金价
+    gold_s_price = overseas.get("gold_spot", {}).get("price")
+
+    items = []
     if wti_price:
-        lines.append(f"大宗商品：原油（WTI）{wti_price}美元/桶（具体涨跌幅详见下文分析）、黄金【待补充】、有色（铜/铝等）整体偏【待补充】（关联A股对应产业链板块）；")
+        items.append(f"WTI原油{wti_price}美元/桶")
+    if brent_price:
+        items.append(f"布伦特原油{brent_price}美元/桶")
+    if gold_f_price:
+        items.append(f"黄金期货{gold_f_price}元/克")
+    if gold_s_price:
+        items.append(f"国际金价{gold_s_price}美元/盎司")
+
+    if items:
+        lines.append("大宗商品：" + "、".join(items) + "（关联A股对应产业链板块）；")
     else:
         lines.append("大宗商品：原油（WTI）【待补充】、黄金【待补充】、有色（铜/铝等）整体偏【待补充】（关联A股对应产业链板块）；")
 
-    # 简评 - 让AI写
     lines.append("简评：【待补充】")
-
     return "\n".join(lines)
 
 
