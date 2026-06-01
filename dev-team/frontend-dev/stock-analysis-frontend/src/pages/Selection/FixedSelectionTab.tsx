@@ -71,6 +71,61 @@ interface StockDetail extends SelectionResultItem {
   changePct?: number;
 }
 
+// KLineChart 组件（提取到组件外部以避免 TDZ 问题）
+const KLineChart: React.FC<{ data: any[] }> = ({ data }) => {
+  const chartRef = React.useRef<any>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!containerRef.current || data.length === 0) return;
+    import('echarts').then(echarts => {
+      if (chartRef.current) chartRef.current.dispose();
+      const chart = echarts.init(containerRef.current!);
+      chartRef.current = chart;
+      const kdata = data.map((k: any) => [
+        k.date || k.trade_date || '',
+        k.open !== undefined ? Number(k.open) : Number(k.open_price),
+        k.close !== undefined ? Number(k.close) : Number(k.close_price),
+        k.low !== undefined ? Number(k.low) : Number(k.low_price),
+        k.high !== undefined ? Number(k.high) : Number(k.high_price),
+        k.volume || 0,
+      ]);
+      const dates = kdata.map((d: any) => d[0]);
+      const values = kdata.map((d: any) => [d[1], d[2], d[3], d[4]]);
+      const volumes = kdata.map((d: any) => d[5]);
+      chart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+        grid: [
+          { left: '8%', right: '5%', top: '5%', height: '65%' },
+          { left: '8%', right: '5%', top: '78%', height: '15%' },
+        ],
+        xAxis: [
+          { type: 'category', data: dates, gridIndex: 0, axisLabel: { rotate: 30, fontSize: 10 } },
+          { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } },
+        ],
+        yAxis: [
+          { type: 'value', gridIndex: 0, scale: true, splitNumber: 5 },
+          { type: 'value', gridIndex: 1, splitNumber: 3 },
+        ],
+        series: [
+          { type: 'candlestick', data: values, xAxisIndex: 0, yAxisIndex: 0,
+            itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' } },
+          { type: 'bar', data: volumes, xAxisIndex: 1, yAxisIndex: 1,
+            itemStyle: { color: (params: any) => {
+              const idx = params.dataIndex;
+              const close = Number(data[idx]?.close || 0);
+              const open = Number(data[idx]?.open || 0);
+              return close >= open ? '#ef5350' : '#26a69a';
+            }}},
+        ],
+      });
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+      return () => { window.removeEventListener('resize', handleResize); chart.dispose(); };
+    });
+  }, [data]);
+  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+};
+
 const FixedSelectionTab: React.FC = () => {
   const { openHelp } = useHelp();
   // 价庣紦瀛樻仮澶嶄笂娆′娇鐢ㄧ殑筛栫暐
@@ -369,88 +424,6 @@ const FixedSelectionTab: React.FC = () => {
       </Modal>
     </div>
   );
-};
-
-// K线数据加载
-  const KLineChart: React.FC<{ data: any[] }> = ({ data }) => {
-  const chartRef = React.useRef<any>(null);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    if (!containerRef.current || data.length === 0) return;
-
-    // 鍔ㄦ盘佸鍏charts
-    import('echarts').then(echarts => {
-      if (chartRef.current) chartRef.current.dispose();
-      const chart = echarts.init(containerRef.current!);
-      chartRef.current = chart;
-
-      // K线数据加载
-  const kdata = data.map((k: any) => [
-        k.date || k.trade_date || '',
-        k.open !== undefined ? Number(k.open) : Number(k.open_price),
-        k.close !== undefined ? Number(k.close) : Number(k.close_price),
-        k.low !== undefined ? Number(k.low) : Number(k.low_price),
-        k.high !== undefined ? Number(k.high) : Number(k.high_price),
-        k.volume || 0,
-      ]);
-
-      const dates = kdata.map((d: any) => d[0]);
-      const values = kdata.map((d: any) => [d[1], d[2], d[3], d[4]]);
-      const volumes = kdata.map((d: any) => d[5]);
-
-      chart.setOption({
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: { type: 'cross' },
-        },
-        grid: [
-          { left: '8%', right: '5%', top: '5%', height: '65%' },
-          { left: '8%', right: '5%', top: '78%', height: '15%' },
-        ],
-        xAxis: [
-          { type: 'category', data: dates, gridIndex: 0, axisLabel: { rotate: 30, fontSize: 10 } },
-          { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } },
-        ],
-        yAxis: [
-          { type: 'value', gridIndex: 0, scale: true, splitNumber: 5 },
-          { type: 'value', gridIndex: 1, splitNumber: 3 },
-        ],
-        series: [
-          {
-            type: 'candlestick',
-            data: values,
-            xAxisIndex: 0, yAxisIndex: 0,
-            itemStyle: {
-              color: '#ef5350', color0: '#26a69a',
-              borderColor: '#ef5350', borderColor0: '#26a69a',
-            },
-          },
-          {
-            type: 'bar',
-            data: volumes,
-            xAxisIndex: 1, yAxisIndex: 1,
-            itemStyle: {
-              color: (params: any) => {
-                const idx = params.dataIndex;
-                const close = Number(data[idx]?.close || 0);
-                const open = Number(data[idx]?.open || 0);
-                return close >= open ? '#ef5350' : '#26a69a';
-              },
-            },
-          },
-        ],
-      });
-
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize);
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.dispose();
-      };
-    });
-  }, [data]);
-
-  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 };
 
 export default FixedSelectionTab;
