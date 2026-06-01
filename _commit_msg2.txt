@@ -1,0 +1,6 @@
+fix: /is-trading-day 端点时区问题，同样 UTC 导致 session 和倒计时全错
+
+- is_trading_day() 改用 zoneinfo(Asia/Shanghai) 北京时间
+- next_open_timestamp 计算修正为带时区的 datetime
+- 之前 UTC 05:22 被判断为盘前（t=322 < 555），返回今天 09:15 UTC 的时间戳
+- 前端拿到错误时间戳，显示"距离开盘还有3小时59分钟"

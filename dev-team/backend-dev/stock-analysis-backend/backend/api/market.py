@@ -1332,8 +1332,10 @@ async def generate_premarket():
 
 @router.get("/is-trading-day")
 async def is_trading_day():
-    """判断今天是否为A股交易日，同时返回当前时段和距下次开盘时间"""
-    now = datetime.now()
+    """判断今天是否为A股交易日，同时返回当前时段和距下次开盘时间（使用北京时间）"""
+    from zoneinfo import ZoneInfo
+    _tz = ZoneInfo("Asia/Shanghai")
+    now = datetime.now(_tz)
     today = now.strftime("%Y-%m-%d")
     dow = now.weekday()  # 0=Mon
     h, m = now.hour, now.minute
@@ -1427,7 +1429,7 @@ async def is_trading_day():
         for td in trade_dates_list:
             if td == today:
                 if t < 555:
-                    next_dt = datetime.strptime(f"{td} 09:15:00", "%Y-%m-%d %H:%M:%S")
+                    next_dt = datetime.strptime(f"{td} 09:15:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz)
                     next_open_ts = int(next_dt.timestamp() * 1000)
                     break
                 elif t >= 900:
@@ -1435,14 +1437,13 @@ async def is_trading_day():
                 else:
                     break
             elif td > today:
-                next_dt = datetime.strptime(f"{td} 09:15:00", "%Y-%m-%d %H:%M:%S")
+                next_dt = datetime.strptime(f"{td} 09:15:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz)
                 next_open_ts = int(next_dt.timestamp() * 1000)
                 break
 
     # 如果akshare计算失败，使用简单规则兜底
     if next_open_ts is None:
         try:
-            now = datetime.now()
             if now.weekday() >= 5:  # 周末 -> 下周一 09:15
                 days_ahead = 7 - now.weekday()
             elif t >= 900:  # 收盘后 -> 次日
