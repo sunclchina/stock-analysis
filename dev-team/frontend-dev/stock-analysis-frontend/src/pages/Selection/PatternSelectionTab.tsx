@@ -124,12 +124,26 @@ const PatternSelectionTab: React.FC = () => {
     Promise.all([
       fetch(`/api/v1/market/kline/${code}?count=60`).then(r => r.json()),
       fetch(`/api/v1/market/quote/${code}`).then(r => r.json()).catch(() => null),
-    ]).then(([klineRes, quoteRes]) => {
+      fetch(`/api/v1/market/timeshare/${code}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/v1/market/indicators/${code}`).then(r => r.json()).catch(() => null),
+    ]).then(([klineRes, quoteRes, tsRes, indRes]) => {
       setDetailKline(klineRes?.klines ? { dataPoints: klineRes.klines, ma5: klineRes.ma5, ma10: klineRes.ma10, ma20: klineRes.ma20 } : null);
       setDetailQuote(mapQuote(quoteRes) || mapQuote(detailStock));
-      if (quoteRes) {
-        setDetailTimeshare(quoteRes.timeshare || null);
-        setDetailIndicators(quoteRes.indicators || null);
+      if (tsRes?.items?.length) {
+        setDetailTimeshare({ code, name: '', date: '', points: tsRes.items, close: 0 });
+      }
+      if (indRes?.ma) {
+        setDetailIndicators({
+          code: indRes.code,
+          name: indRes.name || '',
+          ma5: indRes.ma?.ma5,
+          ma10: indRes.ma?.ma10,
+          ma20: indRes.ma?.ma20,
+          ma60: indRes.ma?.ma60,
+          macd: indRes.macd,
+          kdj: indRes.kdj,
+          rsi: indRes.rsi,
+        });
       }
     }).catch(() => {}).finally(() => setDetailLoading(false));
   }, [detailStock]);
