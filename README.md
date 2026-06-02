@@ -75,11 +75,6 @@
 - **最近分析结论** — 显示最近生成的智能分析结果
 - **自选/监控池快照** — 快速查看自选股和监控池状态
 
-**API 端点：**
-- `GET /api/v1/dashboard` — 聚合仪表盘数据
-- `GET /api/v1/dashboard/a-share-overview` — A 股统计
-- `GET /api/v1/dashboard/event-stocks` — 突发事件股票列表
-
 ---
 
 ### M02 实时行情
@@ -96,14 +91,6 @@ A股全市场实时行情查询与展示。
 - **资金流向** — 个股/板块主力资金流入流出
 - **北向资金** — 沪深港通资金流向
 - **交易日历** — A股交易日/休市日查询
-
-**API 端点：**
-- `GET /api/v1/market/overview` — 大盘概览
-- `GET /api/v1/market/quotes` — 批量行情
-- `GET /api/v1/market/kline/{code}` — K 线数据
-- `GET /api/v1/market/limit-up-tier` — 涨停梯队
-- `GET /api/v1/market/indicators/{code}` — 技术指标
-- `POST /api/v1/market/indicator-selection` — 指标选股（东方财富选股器）
 
 ---
 
@@ -128,12 +115,6 @@ A股全市场实时行情查询与展示。
 - 预警记录列表（按类型/时间/级别筛选）
 - 综合决策矩阵（多维度信号聚合展示）
 - WebSocket 实时推送预警
-
-**API 端点：**
-- `GET /api/v1/warning` — 预警记录列表
-- `GET /api/v1/warning/summary` — 预警汇总统计
-- `GET /api/v1/warning/monitor` — 监控面板/实时状态
-- `POST /api/v1/warning/monitor` — 添加监控标的
 
 ---
 
@@ -173,14 +154,6 @@ A股全市场实时行情查询与展示。
 | 共振维度 | 资金共振、多周期共振 |
 | 盘面范围 | 行业选择、成交额区间、市值区间 |
 
-**API 端点：**
-- `POST /api/v1/selection/fixed` — 固定规则选股
-- `POST /api/v1/selection/custom` — 自定义选股
-- `POST /api/v1/selection/submit` — 异步提交选股任务
-- `GET /api/v1/selection/task/{task_id}` — 查询任务结果
-- `GET /api/v1/selection/templates` — 选股模板列表
-- `GET /api/v1/selection/industries` — 行业列表
-
 ---
 
 ### M05 智能分析
@@ -193,10 +166,6 @@ AI 驱动的个股深度分析。
 - **技术面综合研判** — K线形态识别、技术指标综合分析
 - **基本面分析** — 财务数据解读、估值分析
 - **智能分析结论** — 综合生成买入/持有/卖出建议
-
-**API 端点：**
-- `GET /api/v1/analysis/stock/{code}` — 个股综合分析
-- `GET /api/v1/analysis/report/{code}` — 个股研报
 
 ---
 
@@ -215,14 +184,6 @@ AI 驱动的个股深度分析。
 | 自选股管理 | 添加/删除自选股，从通达信导入、从选股结果导入 |
 | 监控池管理 | 管理预警监控标的，设置监控参数 |
 
-**API 端点：**
-- `GET /api/v1/config/datasource` — 数据源状态
-- `POST /api/v1/config/datasource/switch` — 切换数据源
-- `GET /api/v1/config/preferences` — 用户偏好设置
-- `GET/POST/PUT/DELETE /api/v1/config/watchlist` — 自选股 CRUD
-- `GET/POST /api/v1/config/templates` — 模板管理
-- `POST /api/v1/config/custom-datasource` — 自定义数据源管理
-
 ---
 
 ### M07 资产组合
@@ -235,11 +196,6 @@ AI 驱动的个股深度分析。
 - 持仓市值、盈亏统计
 - 收益率曲线、绩效指标
 
-**API 端点：**
-- `GET /api/v1/portfolio` — 组合列表
-- `POST /api/v1/portfolio` — 创建组合
-- `POST /api/v1/portfolio/{id}/transaction` — 记录交易
-
 ---
 
 ### 研究中心
@@ -250,12 +206,6 @@ AI 驱动的个股深度分析。
 - **个股研报** — 券商研究报告摘要
 - **公司公告** — 上市公司公告查阅
 - **行业研究** — 行业研究报告
-
-**API 端点：**
-- `GET /api/v1/market/stock-research-report` — 个股研报
-- `GET /api/v1/market/stock-notice` — 公司公告
-- `GET /api/v1/market/industry-research-report` — 行业研报
-- `GET /api/v1/market/research-report-detail/{info_code}` — 研报全文
 
 ---
 
@@ -270,13 +220,6 @@ AI 驱动的个股深度分析。
 - 关键词搜索
 - 置顶功能
 - 分页浏览
-
-**API 端点：**
-- `GET /api/v1/notes` — 笔记列表（支持标签/股票/关键词筛选）
-- `POST /api/v1/notes` — 创建笔记
-- `GET /api/v1/notes/{id}` — 笔记详情
-- `PUT /api/v1/notes/{id}` — 更新笔记
-- `DELETE /api/v1/notes/{id}` — 删除笔记
 
 ---
 
