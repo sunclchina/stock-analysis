@@ -14,6 +14,10 @@ export default defineConfig({
         timeout: 120000,
         proxyTimeout: 120000,
       },
+      '/socket.io': {
+        target: apiTarget,
+        ws: true,
+      },
       '/ws': {
         target: apiTarget.replace('http', 'ws'),
         ws: true,
