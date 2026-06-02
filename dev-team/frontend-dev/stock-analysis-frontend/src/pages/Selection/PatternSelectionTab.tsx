@@ -9,6 +9,8 @@ import { BranchesOutlined, SearchOutlined, StarOutlined, StarFilled, ReloadOutli
 import { authFetch } from '../../services/auth';
 import { useConfigStore } from '../../store/configStore';
 import apiClient from '../../services/api';
+import StockDetailDrawer from '../Market/StockDetailDrawer';
+import type { StockQuote, KLineData, TimeShareData, TechnicalIndicators } from '../../types/market';
 
 const { Text } = Typography;
 
@@ -93,18 +95,30 @@ const PatternSelectionTab: React.FC = () => {
   const [scanInfo, setScanInfo] = useState<{ pattern: string; source: string; count: number } | null>(null);
   // 详情弹窗
   const [detailStock, setDetailStock] = useState<any>(null);
-  const [klineData, setKlineData] = useState<any[]>([]);
-  const [klineLoading, setKlineLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailQuote, setDetailQuote] = useState<StockQuote | null>(null);
+  const [detailKline, setDetailKline] = useState<KLineData | null>(null);
+  const [detailTimeshare, setDetailTimeshare] = useState<TimeShareData | null>(null);
+  const [detailIndicators, setDetailIndicators] = useState<TechnicalIndicators | null>(null);
 
-  // K线数据加载
+  // 详情弹窗数据加载
   useEffect(() => {
-    if (!detailStock) { setKlineData([]); return; }
-    setKlineLoading(true);
-    fetch(`/api/v1/market/kline/${detailStock.code}?count=60`)
-      .then(r => r.json())
-      .then(d => setKlineData(d?.klines || []))
-      .catch(() => setKlineData([]))
-      .finally(() => setKlineLoading(false));
+    if (!detailStock) { setDetailLoading(false); return; }
+    setDetailLoading(true);
+    const code = detailStock.code || '';
+    Promise.all([
+      fetch(`/api/v1/market/kline/${code}?count=60`).then(r => r.json()),
+      fetch(`/api/v1/market/quote/${code}`).then(r => r.json()).catch(() => null),
+    ]).then(([klineRes, quoteRes]) => {
+      setDetailKline(klineRes?.klines ? { dataPoints: klineRes.klines, ma5: klineRes.ma5, ma10: klineRes.ma10, ma20: klineRes.ma20 } : null);
+      if (quoteRes) {
+        setDetailQuote(quoteRes);
+        setDetailTimeshare(quoteRes.timeshare || null);
+        setDetailIndicators(quoteRes.indicators || null);
+      } else {
+        setDetailQuote(detailStock);
+      }
+    }).catch(() => {}).finally(() => setDetailLoading(false));
   }, [detailStock]);
 
   // 自选股
@@ -258,26 +272,17 @@ const PatternSelectionTab: React.FC = () => {
         </div>
       ) : null}
 
-      {/* 详情弹窗 */}
-      <Modal title={detailStock ? `${detailStock.code} ${detailStock.name}` : ''} open={!!detailStock}
-        onCancel={() => { setDetailStock(null); setKlineData([]); }} footer={null} width={700}
-        style={{ top: 20, maxWidth: 'calc(100vw - 32px)' }}>
-        {detailStock && <>
-          <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered style={{ marginBottom: 16 }}>
-            <Descriptions.Item label="最新价">{detailStock.price != null ? Number(detailStock.price).toFixed(2) : '-'}</Descriptions.Item>
-            <Descriptions.Item label="涨幅">{detailStock.change_pct != null ? `${detailStock.change_pct > 0 ? '+' : ''}${Number(detailStock.change_pct).toFixed(2)}%` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="代码">{detailStock.code}</Descriptions.Item>
-            <Descriptions.Item label="名称">{detailStock.name}</Descriptions.Item>
-            <Descriptions.Item label="形态" span={2}>{detailStock.pattern_detail || '-'}</Descriptions.Item>
-          </Descriptions>
-          <Divider style={{ margin: '8px 0', fontSize: 13 }}>K线图</Divider>
-          <div style={{ width: '100%', height: 320 }}>
-            {klineLoading ? <div style={{ textAlign: 'center', paddingTop: 120 }}><Spin /></div>
-            : klineData.length > 0 ? <KLineChart data={klineData} />
-            : <Text type="secondary" style={{ display: 'block', textAlign: 'center', paddingTop: 120 }}>暂无K线数据</Text>}
-          </div>
-        </>}
-      </Modal>
+      {/* 详情弹窗（复用行情页StockDetailDrawer） */}
+      <StockDetailDrawer
+        open={!!detailStock}
+        loading={detailLoading}
+        quote={detailQuote}
+        kline={detailKline}
+        timeshare={detailTimeshare}
+        indicators={detailIndicators}
+        onClose={() => { setDetailStock(null); setDetailQuote(null); setDetailKline(null); setDetailTimeshare(null); setDetailIndicators(null); }}
+        onRefresh={() => {}}
+      />
     </div>
   );
 };

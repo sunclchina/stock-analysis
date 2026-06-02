@@ -53,6 +53,8 @@ import { fetchIndicatorSelection } from '../../services/marketResearchApi';
 import { authFetch } from '../../services/auth';
 import { useConfigStore } from '../../store/configStore';
 import apiClient from '../../services/api';
+import StockDetailDrawer from '../Market/StockDetailDrawer';
+import type { StockQuote, KLineData, TimeShareData, TechnicalIndicators } from '../../types/market';
 
 const { Text } = Typography;
 
@@ -100,22 +102,33 @@ const IndicatorSelectionTab: React.FC = () => {
   const [editForm] = Form.useForm();
   // K线详情弹窗
   const [detailStock, setDetailStock] = useState<any>(null);
-  const [klineData, setKlineData] = useState<any[]>([]);
-  const [klineLoading, setKlineLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailQuote, setDetailQuote] = useState<StockQuote | null>(null);
+  const [detailKline, setDetailKline] = useState<KLineData | null>(null);
+  const [detailTimeshare, setDetailTimeshare] = useState<TimeShareData | null>(null);
+  const [detailIndicators, setDetailIndicators] = useState<TechnicalIndicators | null>(null);
   // 自选股
   const { watchlist, addWatchlistItem, removeWatchlistItem } = useConfigStore();
   const watchlistCodes = useMemo(() => new Set(watchlist.map((w) => w.code)), [watchlist]);
 
-  // K线数据加载
+  // 详情弹窗数据加载
   useEffect(() => {
-    if (!detailStock) { setKlineData([]); return; }
-    setKlineLoading(true);
+    if (!detailStock) { setDetailLoading(false); return; }
+    setDetailLoading(true);
     const code = detailStock.SECURITY_CODE || detailStock.code || '';
-    fetch(`/api/v1/market/kline/${code}?count=60`)
-      .then(r => r.json())
-      .then(d => setKlineData(d?.klines || []))
-      .catch(() => setKlineData([]))
-      .finally(() => setKlineLoading(false));
+    Promise.all([
+      fetch(`/api/v1/market/kline/${code}?count=60`).then(r => r.json()),
+      fetch(`/api/v1/market/quote/${code}`).then(r => r.json()).catch(() => null),
+    ]).then(([klineRes, quoteRes]) => {
+      setDetailKline(klineRes?.klines ? { dataPoints: klineRes.klines, ma5: klineRes.ma5, ma10: klineRes.ma10, ma20: klineRes.ma20 } : null);
+      if (quoteRes) {
+        setDetailQuote(quoteRes);
+        setDetailTimeshare(quoteRes.timeshare || null);
+        setDetailIndicators(quoteRes.indicators || null);
+      } else {
+        setDetailQuote(detailStock);
+      }
+    }).catch(() => {}).finally(() => setDetailLoading(false));
   }, [detailStock]);
 
   const handleWatchlistToggle = useCallback(async (item: any) => {
@@ -390,26 +403,17 @@ const IndicatorSelectionTab: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* 详情弹窗 */}
-      <Modal title={detailStock ? `${detailStock.SECURITY_CODE || ''} ${detailStock.SECURITY_SHORT_NAME || ''}` : ''}
-        open={!!detailStock} onCancel={() => { setDetailStock(null); setKlineData([]); }}
-        footer={null} width={700} style={{ top: 20, maxWidth: 'calc(100vw - 32px)' }}>
-        {detailStock && <>
-          <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered style={{ marginBottom: 16 }}>
-            <Descriptions.Item label="代码">{detailStock.SECURITY_CODE || '-'}</Descriptions.Item>
-            <Descriptions.Item label="名称">{detailStock.SECURITY_SHORT_NAME || '-'}</Descriptions.Item>
-            <Descriptions.Item label="最新价">{detailStock.NEWEST_PRICE != null ? Number(detailStock.NEWEST_PRICE).toFixed(2) : '-'}</Descriptions.Item>
-            <Descriptions.Item label="涨幅">{detailStock.CHG != null ? `${Number(detailStock.CHG) > 0 ? '+' : ''}${Number(detailStock.CHG).toFixed(2)}%` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="行业" span={2}>{detailStock.INDUSTRY || '-'}</Descriptions.Item>
-          </Descriptions>
-          <Divider style={{ margin: '8px 0', fontSize: 13 }}>K线图</Divider>
-          <div style={{ width: '100%', height: 320 }}>
-            {klineLoading ? <div style={{ textAlign: 'center', paddingTop: 120 }}><Spin /></div>
-            : klineData.length > 0 ? <KLineChart data={klineData} />
-            : <Text type="secondary" style={{ display: 'block', textAlign: 'center', paddingTop: 120 }}>暂无K线数据</Text>}
-          </div>
-        </>}
-      </Modal>
+      {/* 详情弹窗（复用行情页StockDetailDrawer） */}
+      <StockDetailDrawer
+        open={!!detailStock}
+        loading={detailLoading}
+        quote={detailQuote}
+        kline={detailKline}
+        timeshare={detailTimeshare}
+        indicators={detailIndicators}
+        onClose={() => { setDetailStock(null); setDetailQuote(null); setDetailKline(null); setDetailTimeshare(null); setDetailIndicators(null); }}
+        onRefresh={() => {}}
+      />
     </div>
   );
 };
