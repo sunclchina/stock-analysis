@@ -349,16 +349,15 @@ async def lifespan(app: FastAPI):
     # except Exception as e:
     #     logger.warning(f"AkShare预热失败: {e}")
 
-    # 后台预热选股数据（用户首次进入避免等待）
-    async def _warm_selection():
-        """后台预加载选股数据"""
-        try:
-            from backend.api.selection import load
-            ss = await load()
-            logger.info(f"选股数据预热完成: {len(ss)} 只")
-        except Exception as e:
-            logger.warning(f"选股数据预热失败: {e}")
-    asyncio.create_task(_warm_selection())
+    # 后台预热选股数据（注释：新浪K线API 456拒绝导致事件循环阻塞，暂不启用）
+    # async def _warm_selection():
+    #     try:
+    #         from backend.api.selection import load
+    #         ss = await load()
+    #         logger.info(f"选股数据预热完成: {len(ss)} 只")
+    #     except Exception as e:
+    #         logger.warning(f"选股数据预热失败: {e}")
+    # asyncio.create_task(_warm_selection())
 
     yield  # 应用运行中
 
