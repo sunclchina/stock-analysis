@@ -613,7 +613,7 @@ def _count_by_prefix(codes: list) -> dict:
             sh_star += 1
         elif code.startswith("900"):
             sh_b += 1
-        elif code.startswith(("000", "001", "002", "003", "004")):
+        elif code.startswith(("000", "001", "002", "003", "004", "302")):
             sz_main += 1
         elif code.startswith(("300", "301")):
             sz_gem += 1
