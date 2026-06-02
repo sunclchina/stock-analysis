@@ -324,9 +324,9 @@ class MarketExtensionService:
             qgqp_b_id: 东财用户标识（从系统设置传入），空字符串时尝试走无标识模式
         """
         import time
-        timestamp = int(time.time() * 1000)
+        timestamp = int(time.time())
         url = "https://np-tjxg-g.eastmoney.com/api/smart-tag/stock/v3/pw/search-code"
-        fingerprint = qgqp_b_id if qgqp_b_id else timestamp
+        fingerprint = qgqp_b_id if qgqp_b_id else str(timestamp)
         payload = {
             "keyWord": keyword,
             "pageSize": 20,
@@ -351,6 +351,8 @@ class MarketExtensionService:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Content-Type": "application/json",
         }
+        if qgqp_b_id:
+            headers["Cookie"] = f"qgqp_b_id={qgqp_b_id}"
         try:
             resp = await self._client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
