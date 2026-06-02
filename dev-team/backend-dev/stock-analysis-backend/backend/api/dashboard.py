@@ -375,14 +375,12 @@ def _fetch_all_sina_codes() -> list:
     import httpx
     all_codes = []
     seen = set()
-    # A股：sh_a（沪市主板+科创板）+ sz_a（深市主板+创业板+中小板）
-    # 北交所代码在 hs_a 中可能不包含，单独处理
     nodes = ["sh_a", "sz_a", "bj_a", "sh_b", "sz_b"]
     with httpx.Client(timeout=30, verify=False) as client:
         for node in nodes:
             page = 1
             empty_pages = 0
-            while page <= 200:  # 安全上限
+            while page <= 200:
                 try:
                     items = _fetch_sina_page(client, node, page, 100)
                 except Exception as e:
@@ -408,10 +406,27 @@ def _fetch_all_sina_codes() -> list:
     return all_codes
 
 
+def _fetch_all_codes_by_akshare() -> list:
+    """通过AKShare获取全市场股票代码（含北交所），替代Sina在Docker中被封的问题"""
+    try:
+        import akshare as _ak
+        import pandas as _pd
+        df = _ak.stock_info_a_code_name()
+        if df is not None and not df.empty:
+            codes = df['code'].astype(str).str.strip().tolist()
+            logger.info(f"AKShare: 共获取 {len(codes)} 个代码")
+            return codes
+    except Exception as e:
+        logger.warning(f"AKShare股票列表获取失败: {e}")
+    return []
+
+
 def _fetch_etf_count() -> dict:
-    """获取ETF数量统计（通过东方财富 push2）"""
+    """获取ETF数量统计（东方财富push2，备用AKShare）"""
     etf_sh = 0
     etf_sz = 0
+    
+    # 主用：东方财富 push2
     try:
         import httpx as _hx
         _url = "https://push2.eastmoney.com/api/qt/clist/get"
@@ -435,7 +450,23 @@ def _fetch_etf_count() -> dict:
                     etf_sz += 1
         logger.info(f"ETF: 沪{etf_sh}+深{etf_sz}={etf_sh+etf_sz}")
     except Exception as e:
-        logger.warning(f"ETF获取失败: {e}")
+        logger.warning(f"ETF东财获取失败: {e}")
+    
+    # 备用：AKShare
+    if etf_sh + etf_sz == 0:
+        try:
+            import akshare as _ak
+            df = _ak.fund_etf_spot_em()
+            if df is not None and not df.empty:
+                for c in df['代码'].astype(str):
+                    if c.startswith(("51", "52", "56", "58")):
+                        etf_sh += 1
+                    elif c.startswith("159"):
+                        etf_sz += 1
+                logger.info(f"ETF(AKShare): 沪{etf_sh}+深{etf_sz}={etf_sh+etf_sz}")
+        except Exception as e2:
+            logger.warning(f"ETF AKShare备用也失败: {e2}")
+    
     return {
         "shanghai": {"count": etf_sh, "prefixes": ["51", "52", "56", "58"]},
         "shenzhen": {"count": etf_sz, "prefixes": ["159"]},
@@ -470,15 +501,24 @@ def _fetch_a_share_codes_sync() -> dict:
 
     all_codes = []
     
-    # 主用：新浪 MarketCenter API（沪深A股+B股）
+    # 主用：AKShare（含北交所，Docker兼容性好）
     try:
-        all_codes = _fetch_all_sina_codes()
+        all_codes = _fetch_all_codes_by_akshare()
         if all_codes:
-            logger.info(f"A股概况: Sina API返回 {len(all_codes)} 只")
+            logger.info(f"A股概况: AKShare返回 {len(all_codes)} 只")
     except Exception as e:
-        logger.warning(f"A股概况: Sina API失败 ({e})")
+        logger.warning(f"A股概况: AKShare失败 ({e})")
 
-    # 备用：东方财富（含北交所 m:0 t:82）
+    # 备用：新浪 MarketCenter API
+    if not all_codes:
+        try:
+            all_codes = _fetch_all_sina_codes()
+            if all_codes:
+                logger.info(f"A股概况: Sina API返回 {len(all_codes)} 只")
+        except Exception as e:
+            logger.warning(f"A股概况: Sina API失败 ({e})")
+
+    # 备用2：东方财富（含北交所 m:0 t:82）
     if not all_codes:
         try:
             import math as _mh
