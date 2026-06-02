@@ -116,17 +116,30 @@ const IndicatorSelectionTab: React.FC = () => {
     if (!detailStock) { setDetailLoading(false); return; }
     setDetailLoading(true);
     const code = detailStock.SECURITY_CODE || detailStock.code || '';
+    const mapQuote = (raw: any) => raw ? {
+      code: raw.code || raw.SECURITY_CODE || code,
+      name: raw.name || raw.SECURITY_SHORT_NAME || '',
+      latestPrice: raw.price ?? raw.latestPrice ?? raw.NEWEST_PRICE,
+      changePercent: raw.change_pct ?? raw.changePercent ?? raw.CHG,
+      change: raw.change ?? raw.change_amount,
+      openPrice: raw.open_price ?? raw.openPrice ?? raw.open,
+      prevClose: raw.pre_close ?? raw.prevClose,
+      high: raw.high_price ?? raw.highPrice ?? raw.high,
+      low: raw.low_price ?? raw.lowPrice ?? raw.low,
+      volume: raw.volume ?? 0,
+      amount: raw.amount ?? 0,
+      turnoverRate: raw.turnover_rate ?? raw.turnoverRate,
+      amplitude: raw.amplitude ?? 0,
+    } : null;
     Promise.all([
       fetch(`/api/v1/market/kline/${code}?count=60`).then(r => r.json()),
       fetch(`/api/v1/market/quote/${code}`).then(r => r.json()).catch(() => null),
     ]).then(([klineRes, quoteRes]) => {
       setDetailKline(klineRes?.klines ? { dataPoints: klineRes.klines, ma5: klineRes.ma5, ma10: klineRes.ma10, ma20: klineRes.ma20 } : null);
+      setDetailQuote(mapQuote(quoteRes) || mapQuote(detailStock));
       if (quoteRes) {
-        setDetailQuote(quoteRes);
         setDetailTimeshare(quoteRes.timeshare || null);
         setDetailIndicators(quoteRes.indicators || null);
-      } else {
-        setDetailQuote(detailStock);
       }
     }).catch(() => {}).finally(() => setDetailLoading(false));
   }, [detailStock]);
