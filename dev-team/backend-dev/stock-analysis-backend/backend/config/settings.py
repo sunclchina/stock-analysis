@@ -69,7 +69,7 @@ class Settings(BaseSettings):
 
     # 后端服务
     backend_host: str = Field(default="0.0.0.0", alias="BACKEND_HOST")
-    backend_port: int = Field(default=8000, alias="BACKEND_PORT")
+    backend_port: int = Field(default=8081, alias="BACKEND_PORT")
     backend_reload: bool = Field(default=True, alias="BACKEND_RELOAD")
 
     # 数据库
