@@ -315,9 +315,14 @@ class AkShareDataSource(BaseDataSource):
 
         try:
             self._ensure_import()
-            for fn in [self._ak.stock_zt_pool_em, self._ak.stock_zt_pool_previous_em, self._ak.stock_zt_pool_strong_em]:
+            today_str = datetime.now().strftime("%Y%m%d")
+            for fn, date_arg in [
+                (self._ak.stock_zt_pool_em, today_str),
+                (self._ak.stock_zt_pool_previous_em, today_str),
+                (self._ak.stock_zt_pool_strong_em, today_str),
+            ]:
                 try:
-                    df = await self._call_ak(fn)
+                    df = await self._call_ak(fn, date=date_arg)
                     if df is not None and not df.empty:
                         results = []
                         for _, row in df.iterrows():
