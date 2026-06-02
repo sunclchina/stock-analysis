@@ -91,8 +91,7 @@ class Settings(BaseSettings):
     # 数据源
     tdx_enabled: bool = Field(default=True, alias="TDX_ENABLED")
     tdx_data_dir: str = Field(default="./data/tdx", alias="TDX_DATA_DIR")
-    tdx_api_url: str = Field(default="http://49.232.145.222:8080", alias="TDX_API_URL")
-    primary_data_source: str = Field(default="tdx_api", alias="PRIMARY_DATA_SOURCE")
+    primary_data_source: str = Field(default="eastmoney", alias="PRIMARY_DATA_SOURCE")
     fallback_data_source: str = Field(default="eastmoney", alias="FALLBACK_DATA_SOURCE")
 
     # 东方财富 API 配置（可配置URL，不硬编码）

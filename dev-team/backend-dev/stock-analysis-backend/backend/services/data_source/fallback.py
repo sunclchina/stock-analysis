@@ -48,7 +48,7 @@ class DataSourceManager:
     MODULE_SOURCES: Dict[str, List[str]] = {
         # 市场行情
         "market_quotes":      ["sina", "eastmoney", "baostock"],       # 批量/单只行情快照（新浪最稳）
-        "market_kline":       ["sina", "baostock", "eastmoney"],  # K线数据（新浪最稳，东财最后兜底）
+        "market_kline":       ["eastmoney", "sina", "baostock"],  # K线数据（东方财富优先）
         "market_sector":      ["akshare", "eastmoney"],              # 板块涨跌
         "market_limit":       ["akshare", "eastmoney"],                 # 涨跌停家数/涨停股池
         "market_northbound":  ["akshare"],                              # 北向资金（仅akshare）
@@ -315,10 +315,7 @@ class DataSourceManager:
             except Exception as e:
                 logger.warning(f"通达信本地数据源注册失败: {e}")
 
-            # 注册 tdx_api（HTTP 版 TDX 数据源）
-            from backend.services.data_source.tdx_api import TdxApiDataSource
-            self.register(TdxApiDataSource())
-            logger.info(f"TDX API 数据源已注册: {settings.tdx_api_url}")
+
 
         # 从 settings 读取主/备配置（覆盖硬编码）
         self._primary_name = settings.primary_data_source
