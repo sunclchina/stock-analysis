@@ -2157,14 +2157,60 @@ def _get_sentiment_service():
 
 @router.get("/concept-sectors")
 async def concept_sectors():
-    """概念板块涨跌排行（akshare 东方财富分类）"""
+    """概念板块涨跌排行"""
     dsm = _get_dsm()
+    # 1. akshare 东方财富概念板块
     try:
         ak = dsm.get_active_for_module("market_concept")
         if hasattr(ak, "get_concept_sectors"):
-            return await ak.get_concept_sectors()
+            result = await ak.get_concept_sectors()
+            if result and len(result) > 0:
+                return result
+            logger.info("概念板块-数据源返回空，尝试降级")
     except Exception as e:
-        logger.warning(f"概念板块获取失败: {e}")
+        logger.warning(f"概念板块-数据源失败: {e}")
+
+    # 2. 降级：直调 akshare
+    try:
+        import akshare as _ak
+        loop = asyncio.get_event_loop()
+        df = await loop.run_in_executor(None, _ak.stock_board_concept_spot_em)
+        if df is not None and not df.empty:
+            df = df.head(20)
+            result = []
+            for _, r in df.iterrows():
+                result.append({
+                    "name": str(r.get("板块名称", "")),
+                    "avg_change_pct": float(r.get("涨跌幅", 0)),
+                    "leading_stock": str(r.get("龙头股", "")) if r.get("龙头股") is not None and str(r.get("龙头股")) != "nan" else "",
+                    "leading_stock_change": float(r.get("龙头股涨跌幅", 0)) if r.get("龙头股涨跌幅") is not None else 0,
+                })
+            return result
+        logger.info("概念板块-akshare返回空，尝试腾讯降级")
+    except Exception as e2:
+        logger.warning(f"概念板块-akshare降级失败: {e2}")
+
+    # 3. 降级：腾讯财经概念板块 (t=02=概念, t=01=行业)
+    try:
+        import httpx
+        _url = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/mktHs/rank?l=20&p=1&t=02/averatio&ordertype=&o=0"
+        async with httpx.AsyncClient(timeout=10) as _client:
+            _resp = await _client.get(_url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.qq.com"})
+            _data = _resp.json()
+            if _data.get("code") == 0 and _data.get("data"):
+                result = []
+                for item in _data["data"]:
+                    result.append({
+                        "name": item.get("bd_name", ""),
+                        "avg_change_pct": float(item.get("bd_zdf", 0)),
+                        "leading_stock": item.get("nzg_name", ""),
+                        "leading_stock_change": float(item.get("nzg_zdf", 0)) if item.get("nzg_zdf") else 0,
+                    })
+                logger.info(f"概念板块-腾讯降级(t=02): {len(result)} 条")
+                return result
+    except Exception as e3:
+        logger.warning(f"概念板块-腾讯降级失败: {e3}")
+
     return []
 
 
@@ -2179,6 +2225,153 @@ async def industry_sectors_detailed():
     except Exception as e:
         logger.warning(f"行业板块详细获取失败: {e}")
     return []
+
+
+@router.get("/advance-decline")
+async def advance_decline():
+    """
+    涨跌分布统计。
+
+    缓存策略：当日数据首次拉取成功后缓存到 SQLite，后续请求直接读缓存。
+    """
+    from backend.services.data_cache import generic_cache
+    _cache_key = "advance_decline_today"
+
+    # 1. 读缓存
+    cached = await generic_cache.get(_cache_key)
+    if cached:
+        import json as _json
+        try:
+            return _json.loads(cached)
+        except Exception:
+            pass
+
+    # 2. 从 API 拉取
+    import httpx
+    _result = None
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = "https://push2.eastmoney.com/api/qt/clist/get"
+            params = {
+                "pn": "1", "pz": "5000", "po": "0", "np": "1",
+                "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+                "fltt": "2", "invt": "2", "fid": "f3",
+                "fs": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2",
+                "fields": "f12,f3",
+            }
+            headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com"}
+            resp = await client.get(url, params=params, headers=headers)
+            data = resp.json()
+            items = (data.get("data", {}) or {}).get("diff", [])
+            if items:
+                up = 0
+                down = 0
+                flat = 0
+                limit_up = 0
+                limit_down = 0
+                for it in items:
+                    chg = it.get("f3")
+                    if chg is None:
+                        continue
+                    try:
+                        chg = float(chg)
+                    except (ValueError, TypeError):
+                        continue
+                    if chg > 0:
+                        up += 1
+                        if chg >= 9.8:
+                            limit_up += 1
+                    elif chg < 0:
+                        down += 1
+                        if chg <= -9.8:
+                            limit_down += 1
+                    else:
+                        flat += 1
+
+                total = up + down + flat
+                # 尝试获取第二页补齐数据
+                params["pn"] = "2"
+                try:
+                    resp2 = await client.get(url, params=params, headers=headers)
+                    data2 = resp2.json()
+                    items2 = (data2.get("data", {}) or {}).get("diff", [])
+                    for it in items2:
+                        chg = it.get("f3")
+                        if chg is None:
+                            continue
+                        try:
+                            chg = float(chg)
+                        except (ValueError, TypeError):
+                            continue
+                        if chg > 0:
+                            up += 1
+                            if chg >= 9.8:
+                                limit_up += 1
+                        elif chg < 0:
+                            down += 1
+                            if chg <= -9.8:
+                                limit_down += 1
+                        else:
+                            flat += 1
+                except Exception:
+                    pass
+
+                _result = {
+                    "up": up,
+                    "down": down,
+                    "flat": flat,
+                    "total": total,
+                    "limit_up": limit_up,
+                    "limit_down": limit_down,
+                }
+                # 写入缓存
+                import json as _json
+                try:
+                    await generic_cache.set(_cache_key, _json.dumps(_result), ttl_seconds=3600)
+                except Exception:
+                    pass
+                return _result
+    except Exception as e:
+        logger.warning(f"涨跌分布-东财失败: {e}")
+
+    # 降级：akshare 实时行情
+    try:
+        import akshare as _ak
+        loop = asyncio.get_event_loop()
+        df = await loop.run_in_executor(None, _ak.stock_zh_a_spot_em)
+        if df is not None and not df.empty and "涨跌幅" in df.columns:
+            up = int((df["涨跌幅"] > 0).sum())
+            down = int((df["涨跌幅"] < 0).sum())
+            flat = int((df["涨跌幅"] == 0).sum())
+            limit_up = int((df["涨跌幅"] >= 9.8).sum())
+            limit_down = int((df["涨跌幅"] <= -9.8).sum())
+            total = len(df)
+            logger.info(f"涨跌分布-akshare: 上涨{up} 平盘{flat} 下跌{down} 涨停{limit_up} 跌停{limit_down}")
+            _result = {
+                "up": up, "down": down, "flat": flat, "total": total,
+                "limit_up": limit_up, "limit_down": limit_down,
+            }
+            # 写入缓存
+            import json as _json
+            try:
+                await generic_cache.set(_cache_key, _json.dumps(_result), ttl_seconds=3600)
+            except Exception:
+                pass
+            return _result
+    except Exception as e2:
+        logger.warning(f"涨跌分布-akshare降级失败: {e2}")
+
+    # 写入缓存（空结果也写，TTL短一些避免缓存太久）
+    _save = _result or {"up": 0, "down": 0, "flat": 0, "total": 0, "limit_up": 0, "limit_down": 0}
+    import json as _json
+    try:
+        _ttl = 300 if _result else 120  # 有数据1小时，无数据2分钟
+        await generic_cache.set(_cache_key, _json.dumps(_save), ttl_seconds=_ttl)
+        logger.info(f"涨跌分布缓存写入: {_save['up']}/{_save['flat']}/{_save['down']} TTL={_ttl}s")
+    except Exception as e:
+        logger.warning(f"涨跌分布缓存写入失败: {e}")
+
+    return _save
 
 
 @router.get("/individual-fund-flow/{code}")
