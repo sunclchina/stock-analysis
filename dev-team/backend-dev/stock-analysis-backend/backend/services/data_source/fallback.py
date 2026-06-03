@@ -263,22 +263,89 @@ class DataSourceManager:
 
     async def get_kline(self, code: str, count: int = 120) -> List[KLineData]:
         """
-        获取K线数据。使用模块专用路由：只走 market_kline 的源顺序。
-        不通过 _try_all_sources 通用优先级（避免了新浪/东财K线API不稳定拖垮数据源状态的问题）。
+        获取K线数据。
+
+        缓存策略：
+          1. 优先读 SQLite 本地缓存
+          2. 缓存中最新日期不足今日时，只增量补采缺失日期的数据
+          3. 补采结果自动写入缓存
+          4. 最终返回按日期升序的 count 条数据
+
+        数据源降级：baostock → eastmoney → sina（通过 market_kline 模块路由）
         """
-        module_sources = self.get_module_sources("market_kline")
-        for name in module_sources:
-            source = self._sources.get(name)
-            if not source:
-                continue
-            try:
-                result = await source.get_kline(code, count)
-                if result and len(result) > 0:
-                    if self._active_name != name:
-                        self._active_name = name
-                    return result
-            except Exception:
-                continue
+        import logging
+        logger = logging.getLogger(__name__)
+        from datetime import date, datetime
+        from backend.services.data_cache import kline_cache as _kline_cache
+
+        clean_code = code.upper().replace(".SH", "").replace(".SZ", "").replace(".BJ", "")
+
+        # 定义 API 回调：供缓存层增量补采
+        async def _fetch_from_api(fetch_code: str, since: date = None) -> list:
+            """从数据源获取K线，返回 dict 列表"""
+            module_sources = self.get_module_sources("market_kline")
+            for name in module_sources:
+                source = self._sources.get(name)
+                if not source:
+                    continue
+                try:
+                    result = await source.get_kline(fetch_code, count)
+                    if result and len(result) > 0:
+                        logger.debug(f"K线数据源 [{name}] {fetch_code}: {len(result)} 条")
+                        # 转 dict（只保留 since 之后的数据）
+                        dicts = []
+                        for k in result:
+                            td = k.trade_date
+                            if isinstance(td, datetime):
+                                d = td.date()
+                            else:
+                                d = td.date() if hasattr(td, 'date') else td
+                            if since is None or d > since:
+                                dicts.append({
+                                    "trade_date": d.isoformat() if hasattr(d, 'isoformat') else str(d),
+                                    "open": k.open_price,
+                                    "close": k.close_price,
+                                    "high": k.high_price,
+                                    "low": k.low_price,
+                                    "volume": k.volume,
+                                    "amount": k.amount,
+                                })
+                        if dicts:
+                            return dicts
+                except Exception:
+                    continue
+            return []
+
+        # 1. 读缓存 + 增量补采
+        cached_dicts = await _kline_cache.get_or_fetch(clean_code, _fetch_from_api, max_days=count)
+
+        # 2. 转回 KLineData 对象
+        if cached_dicts:
+            result = []
+            for item in cached_dicts:
+                td_str = item.get("trade_date")
+                try:
+                    if isinstance(td_str, str):
+                        from datetime import date as dt_date
+                        trade_date = dt_date.fromisoformat(td_str[:10])
+                    else:
+                        trade_date = td_str
+                except Exception:
+                    continue
+                k = KLineData(
+                    code=clean_code,
+                    trade_date=trade_date,
+                    open_price=item.get("open", 0.0),
+                    close_price=item.get("close", 0.0),
+                    high_price=item.get("high", 0.0),
+                    low_price=item.get("low", 0.0),
+                    volume=item.get("volume", 0.0),
+                    amount=item.get("amount", 0.0),
+                )
+                result.append(k)
+            logger.debug(f"K线缓存返回 {clean_code}: {len(result)} 条")
+            return result[-count:]  # 返回最新的 count 条
+
         return []
 
     # ─── 默认数据源注册 ────────────────────────

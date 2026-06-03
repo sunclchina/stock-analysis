@@ -194,6 +194,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("数据库初始化完成")
 
+    # 1.1 初始化数据缓存表（SQLite本地缓存K线/分时）
+    try:
+        from backend.services.data_cache import init_cache_tables
+        await init_cache_tables()
+    except Exception as e:
+        logger.warning(f"数据缓存表初始化失败: {e}")
+
     # 1.5 初始化默认用户
     try:
         async with async_session_factory() as session:

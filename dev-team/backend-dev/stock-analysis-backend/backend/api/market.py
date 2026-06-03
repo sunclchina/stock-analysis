@@ -1854,44 +1854,49 @@ async def get_timeshare(code: str):
     参数：
     - code: 股票代码（如 000001, 600036）
 
-    优先从新浪数据源获取，失败后从东财降级。
+    缓存策略：
+    - 优先读 SQLite 本地缓存（当日数据）
+    - 缓存未命中则依次尝试新浪 → 东财
+    - 拉取成功后自动写入缓存
     """
     import httpx
+    from backend.services.data_cache import timeshare_cache as _ts_cache
+
     dsm = _get_dsm()
     clean_code = code.upper().replace(".SH", "").replace(".SZ", "").replace(".BJ", "")
 
-    # 1. 尝试新浪分时
-    try:
-        source = dsm._sources.get("sina")
-        if source and hasattr(source, 'get_timeshare'):
-            result = await source.get_timeshare(code)
-            if result:
-                return {
-                    "code": clean_code,
-                    "items": result,
-                    "count": len(result),
-                    "timestamp": datetime.now().isoformat(),
-                }
-    except Exception as e:
-        logger.warning(f"新浪分时获取失败: {e}")
+    # 定义回调：依次尝试新浪 → 东财
+    async def _fetch_from_api(raw_code: str) -> list:
+        # 新浪分时
+        try:
+            source = dsm._sources.get("sina")
+            if source and hasattr(source, 'get_timeshare'):
+                result = await source.get_timeshare(raw_code)
+                if result:
+                    return result
+        except Exception as e:
+            logger.warning(f"新浪分时获取失败: {e}")
 
-    # 2. 东财 trend API 降级
-    try:
-        mkt = "1" if clean_code.startswith(("6", "9")) else "0"
-        url = f"https://push2.eastmoney.com/api/qt/stock/trends2/get"
-        params = {
-            "secid": f"{mkt}.{clean_code}",
-            "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
-            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
-            "ut": "fa5fd1943c7b386f172d6893dbfd32bb",
-            "ndays": "1",
-        }
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url, params=params,
-                headers={"User-Agent":"Mozilla/5.0","Referer":"https://quote.eastmoney.com"})
-            data = resp.json()
-            trends = data.get("data", {}).get("trends", [])
-            if trends:
+        # 东财 trend API 降级
+        try:
+            mkt = "1" if clean_code.startswith(("6", "9")) else "0"
+            params = {
+                "secid": f"{mkt}.{clean_code}",
+                "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
+                "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
+                "ut": "fa5fd1943c7b386f172d6893dbfd32bb",
+                "ndays": "1",
+            }
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    "https://push2.eastmoney.com/api/qt/stock/trends2/get",
+                    params=params,
+                    headers={"User-Agent":"Mozilla/5.0","Referer":"https://quote.eastmoney.com"},
+                )
+                data = resp.json()
+                trends = data.get("data", {}).get("trends", [])
+                if not trends:
+                    return []
                 items = []
                 for t in trends:
                     parts = t.split(",")
@@ -1903,16 +1908,22 @@ async def get_timeshare(code: str):
                             "volume": float(parts[3]) if parts[3] else 0,
                             "amount": float(parts[4]) if parts[4] else 0,
                         })
-                if items:
-                    return {
-                        "code": clean_code,
-                        "items": items,
-                        "count": len(items),
-                        "timestamp": datetime.now().isoformat(),
-                        "source": "eastmoney",
-                    }
-    except Exception as e:
-        logger.warning(f"东财分时降级失败: {e}")
+                return items
+        except Exception as e:
+            logger.warning(f"东财分时降级失败: {e}")
+        return []
+
+    # 通过缓存层获取（缓存命中则跳过 API）
+    items = await _ts_cache.get_or_fetch(clean_code, _fetch_from_api)
+
+    if items:
+        return {
+            "code": clean_code,
+            "items": items,
+            "count": len(items),
+            "timestamp": datetime.now().isoformat(),
+            "source": "cache" if items else "api",
+        }
 
     return {
         "code": clean_code,

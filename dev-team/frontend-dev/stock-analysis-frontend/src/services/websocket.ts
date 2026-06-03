@@ -1,134 +1,150 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
-import type { WarningItem } from '../types/warning';
-import type { StockSnapshot } from '../types/dashboard';
-
-export type WsEventMap = {
-  'market:update': (data: StockSnapshot[]) => void;
-  'warning:trigger': (data: WarningItem) => void;
-  'warning:resolve': (data: { id: string }) => void;
-  'config:changed': (data: { type: string }) => void;
-  'heartbeat': (data: { timestamp: number }) => void;
-};
 
 type EventHandler = (...args: unknown[]) => void;
 
-let socket: Socket | null = null;
+let ws: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 10;
 const listeners = new Map<string, Set<EventHandler>>();
+const globalListeners = new Set<(event: string, data: unknown) => void>();
 
-function getSocket(): Socket {
-  if (!socket) {
-    const wsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:8080/ws`;
-    socket = io(wsUrl, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 3000,
-    });
+function getWsUrl(): string {
+  const host = window.location.hostname;
+  const port = import.meta.env.VITE_WS_PORT || '8000';
+  return import.meta.env.VITE_WS_URL || `ws://${host}:${port}/ws`;
+}
 
-    socket.on('connect', () => {
-      console.log('[WebSocket] Connected');
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('[WebSocket] Disconnected:', reason);
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('[WebSocket] Connection error:', err.message);
-    });
-
-    // Forward all events to local listeners
-    const originalOn = socket.on.bind(socket);
-    socket.on = ((event: string, handler: EventHandler) => {
-      listeners.get(event)?.add(handler);
-      return socket;
-    }) as typeof socket.on;
-
-    socket.onAny((event: string, ...args: unknown[]) => {
-      const handlers = listeners.get(event);
-      if (handlers) {
-        handlers.forEach((h) => h(...args));
-      }
-    });
+function notify(event: string, data: unknown) {
+  const handlers = listeners.get(event);
+  if (handlers) {
+    handlers.forEach((h) => h(data));
   }
-  return socket;
+  globalListeners.forEach((h) => h(event, data));
+}
+
+function connect() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  try {
+    ws = new WebSocket(getWsUrl());
+
+    ws.onopen = () => {
+      console.log('[WebSocket] Connected');
+      reconnectAttempts = 0;
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        const evt = parsed.event || parsed.type || 'message';
+        const data = parsed.data || parsed;
+        notify(evt, data);
+      } catch {
+        // Not JSON, forward as raw message
+        notify('raw', event.data);
+      }
+    };
+
+    ws.onclose = (reason) => {
+      console.log('[WebSocket] Disconnected:', reason);
+      ws = null;
+      scheduleReconnect();
+    };
+
+    ws.onerror = (err) => {
+      console.error('[WebSocket] Connection error:', err);
+    };
+  } catch (err) {
+    console.error('[WebSocket] Failed to create connection:', err);
+    scheduleReconnect();
+  }
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  if (reconnectAttempts >= maxReconnectAttempts) {
+    console.log('[WebSocket] Max reconnect attempts reached');
+    return;
+  }
+  reconnectAttempts++;
+  const delay = Math.min(3000 * Math.pow(1.5, reconnectAttempts - 1), 30000);
+  console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connect();
+  }, delay);
 }
 
 /** Subscribe to a WebSocket event */
-export function subscribe<K extends keyof WsEventMap>(
-  event: K,
-  handler: WsEventMap[K]
-): () => void {
-  const ws = getSocket();
+export function subscribe(event: string, handler: EventHandler): () => void {
   const handlers = listeners.get(event) || new Set();
-  handlers.add(handler as EventHandler);
+  handlers.add(handler);
   listeners.set(event, handlers);
-
   return () => {
-    handlers.delete(handler as EventHandler);
-    if (handlers.size === 0) {
-      listeners.delete(event);
-    }
+    handlers.delete(handler);
+    if (handlers.size === 0) listeners.delete(event);
   };
 }
 
-/** Send a WebSocket event */
-export function emit(event: string, data: unknown): void {
-  const ws = getSocket();
-  if (ws.connected) {
-    ws.emit(event, data);
+/** Subscribe to all events */
+export function subscribeAll(handler: (event: string, data: unknown) => void): () => void {
+  globalListeners.add(handler);
+  return () => { globalListeners.delete(handler); };
+}
+
+/** Send a message */
+export function emit(event: string, data?: unknown): void {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ event, data }));
   }
 }
 
 /** Check connection status */
 export function isConnected(): boolean {
-  return socket?.connected ?? false;
+  return ws?.readyState === WebSocket.OPEN;
 }
 
-/** Disconnect socket */
+/** Disconnect */
 export function disconnect(): void {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (ws) {
+    ws.close();
+    ws = null;
   }
   listeners.clear();
+  globalListeners.clear();
+  reconnectAttempts = 0;
 }
 
-/** Reconnect socket */
+/** Reconnect */
 export function reconnect(): void {
   disconnect();
-  getSocket();
+  connect();
 }
 
 /**
  * React hook for WebSocket events with auto cleanup.
- * Returns connection status.
  */
 export function useWebSocket() {
   const connectedRef = useRef(false);
 
   useEffect(() => {
-    const ws = getSocket();
-
-    const onConnect = () => { connectedRef.current = true; };
-    const onDisconnect = () => { connectedRef.current = false; };
-
-    ws.on('connect', onConnect);
-    ws.on('disconnect', onDisconnect);
-
+    connect();
+    const interval = setInterval(() => {
+      connectedRef.current = ws?.readyState === WebSocket.OPEN;
+    }, 1000);
     return () => {
-      ws.off('connect', onConnect);
-      ws.off('disconnect', onDisconnect);
+      clearInterval(interval);
     };
   }, []);
 
-  return {
-    subscribe,
-    emit,
-    isConnected: () => socket?.connected ?? false,
-    reconnect,
-  };
+  return { subscribe, subscribeAll, emit, isConnected, reconnect };
 }
 
-export default getSocket;
+export default { subscribe, subscribeAll, emit, isConnected, disconnect, reconnect };

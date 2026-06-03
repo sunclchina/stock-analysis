@@ -882,16 +882,27 @@ async def get_decision_board():
       stocks: 股票决策列表，按评分排序
       stats: 统计（看多家数/看空家数/平均分）
     """
+    try:
+        return await _get_decision_board_impl()
+    except Exception as e:
+        import traceback
+        logger.error(f"决策仪表盘异常: {e}\n{traceback.format_exc()}")
+        return {"stocks": [], "stats": {"bullish": 0, "bearish": 0, "neutral": 0, "avg_score": 0, "total": 0}, "error": str(e)}
+
+
+async def _get_decision_board_impl():
+    import sys
     from backend.api.market import _get_dsm
     from backend.services.anomaly_detector import batch_detect_anomalies
     from backend.services.data_source.base import KLineData as _KLine
 
     dsm = _get_dsm()
-    import sys
-    
+
     # 自动重置数据源（解决后台定时任务累计失败导致数据源被误标记为OFFLINE的问题）
-    dsm.reset_source_status()
-    print(f"[QB] reset done. Sources:", {n: f'{s.status}/{s._consecutive_failures}' for n,s in dsm._sources.items()}, file=sys.stderr)
+    try:
+        dsm.reset_source_status()
+    except Exception:
+        pass
     
     # 1. 读取监控池
     from sqlalchemy import select as _sl
@@ -913,7 +924,6 @@ async def get_decision_board():
     # 2. 批量获取行情
     quotes = await dsm.get_quotes(codes)
     if not quotes:
-        import sys
         print(f"[QB_DBG] quotes empty, codes={codes}, active={dsm._active_name}", file=sys.stderr)
         return {"stocks": [], "stats": {"bullish": 0, "bearish": 0, "neutral": 0, "avg_score": 0}}
     print(f"[QB_DBG] quotes OK: {len(quotes)} items", file=sys.stderr)
@@ -924,7 +934,6 @@ async def get_decision_board():
     import asyncio
     kline_tasks = [dsm.get_kline(c, 60) for c in codes]
     kline_results = await asyncio.gather(*kline_tasks, return_exceptions=True)
-    import sys
     for i, (c, kr) in enumerate(zip(codes, kline_results)):
         if isinstance(kr, Exception):
             print(f"[QB_DBG] kline {c}: EXCEPTION {kr}", file=sys.stderr)
@@ -950,6 +959,14 @@ async def get_decision_board():
         highs = [k.high_price for k in klines_raw]
         lows = [k.low_price for k in klines_raw]
         volumes = [k.volume for k in klines_raw]
+
+        # 将实时行情追加到K线序列尾部，使技术指标反映今日涨跌
+        if q and q.price:
+            closes.append(q.price)
+            highs.append(max(q.high_price or q.price, q.price))
+            lows.append(min(q.low_price or q.price, q.price))
+            if q.volume:
+                volumes.append(q.volume)
 
         # Fallback: use latest K-line close if real-time quote unavailable
         if not q:
@@ -1050,7 +1067,23 @@ async def get_decision_board():
                 risk_score += 3
         risk_score = max(0, min(25, risk_score))
 
-        total_score = min(100, trend_score + momentum_score + volume_score + risk_score)
+        # ── 涨跌幅加成：涨停/大跌直接调整总分 ──
+        change_bonus = 0
+        if q and q.change_pct is not None:
+            if q.change_pct >= 9.5:
+                change_bonus = 15  # 涨停强力看多
+            elif q.change_pct >= 5:
+                change_bonus = 10   # 大涨
+            elif q.change_pct >= 2:
+                change_bonus = 5    # 上涨
+            elif q.change_pct <= -9.5:
+                change_bonus = -15  # 跌停强力看空
+            elif q.change_pct <= -5:
+                change_bonus = -10  # 大跌
+            elif q.change_pct <= -2:
+                change_bonus = -5   # 下跌
+
+        total_score = min(100, max(0, trend_score + momentum_score + volume_score + risk_score + change_bonus))
 
         # ── 信号判定 ──
         signal_type = "neutral"

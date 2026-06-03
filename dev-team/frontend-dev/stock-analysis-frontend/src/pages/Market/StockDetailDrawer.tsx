@@ -51,6 +51,7 @@ function changeColor(val: number): string {
 
 /** 格式化 */
 function formatVolume(v: number): string {
+  if (v == null || isNaN(v)) return '—';
   if (v >= 100000000) return (v / 100000000).toFixed(2) + '亿';
   if (v >= 10000) return (v / 10000).toFixed(2) + '万';
   return v.toFixed(0);
@@ -184,8 +185,9 @@ function getTimeshareOption(data: TimeShareData | null): Record<string, unknown>
 
   const times = data.points.map((p) => p.time);
   const prices = data.points.map((p) => p.price);
-  const avgPrices = data.points.map((p) => p.avgPrice);
-  const volumes = data.points.map((p) => p.volume);
+  // 兼容 snake_case (avg_price) 和 camelCase (avgPrice)
+  const avgPrices = data.points.map((p) => p.avgPrice ?? p.avg_price);
+  const volumes = data.points.map((p) => p.volume ?? 0);
 
   return {
     tooltip: {
@@ -251,6 +253,7 @@ function getTimeshareOption(data: TimeShareData | null): Record<string, unknown>
 
 /** 市值格式 */
 function formatMarketCap(val: number): string {
+  if (val == null || isNaN(val)) return '—';
   if (val >= 100000000) return (val / 100000000).toFixed(2) + '亿';
   if (val >= 10000) return (val / 10000).toFixed(2) + '万';
   return val.toFixed(0);
@@ -285,28 +288,28 @@ const StockDetailDrawer: React.FC<StockDetailDrawerProps> = ({
           }}
         >
           <div style={{ fontSize: 32, fontWeight: 700, color: changeColor(quote.changePercent) }}>
-            {quote.latestPrice.toFixed(2)}
+            {quote.latestPrice != null ? quote.latestPrice.toFixed(2) : '—'}
           </div>
           <Space size={16} style={{ marginTop: 4 }}>
             <Text style={{ fontSize: 14, color: changeColor(quote.changePercent) }}>
-              {quote.changePercent > 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%
+              {quote.changePercent != null ? (quote.changePercent > 0 ? '+' : '') + quote.changePercent.toFixed(2) + '%' : '—'}
             </Text>
             <Text style={{ fontSize: 13, color: changeColor(quote.changePercent) }}>
-              {quote.change > 0 ? '+' : ''}{quote.change.toFixed(2)}
+              {quote.change != null ? (quote.change > 0 ? '+' : '') + quote.change.toFixed(2) : '—'}
             </Text>
           </Space>
         </div>
 
         <div style={{ overflowX: 'auto', width: '100%' }}>
         <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
-          <Descriptions.Item label="今开">{quote.openPrice.toFixed(2)}</Descriptions.Item>
-          <Descriptions.Item label="昨收">{quote.prevClose.toFixed(2)}</Descriptions.Item>
-          <Descriptions.Item label="最高">{quote.high.toFixed(2)}</Descriptions.Item>
-          <Descriptions.Item label="最低">{quote.low.toFixed(2)}</Descriptions.Item>
-          <Descriptions.Item label="成交量">{formatVolume(quote.volume)}</Descriptions.Item>
-          <Descriptions.Item label="成交额">{formatVolume(quote.amount)}</Descriptions.Item>
-          <Descriptions.Item label="换手率">{quote.turnoverRate && quote.turnoverRate > 0 ? quote.turnoverRate.toFixed(2) + '%' : '-'}</Descriptions.Item>
-          <Descriptions.Item label="振幅">{quote.amplitude && quote.amplitude > 0 ? quote.amplitude.toFixed(2) + '%' : '-'}</Descriptions.Item>
+          <Descriptions.Item label="今开">{quote.openPrice != null ? quote.openPrice.toFixed(2) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="昨收">{quote.prevClose != null ? quote.prevClose.toFixed(2) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="最高">{quote.high != null ? quote.high.toFixed(2) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="最低">{quote.low != null ? quote.low.toFixed(2) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="成交量">{quote.volume != null ? formatVolume(quote.volume) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="成交额">{quote.amount != null ? formatVolume(quote.amount) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="换手率">{quote.turnoverRate != null && quote.turnoverRate > 0 ? quote.turnoverRate.toFixed(2) + '%' : '-'}</Descriptions.Item>
+          <Descriptions.Item label="振幅">{quote.amplitude != null && quote.amplitude > 0 ? quote.amplitude.toFixed(2) + '%' : '-'}</Descriptions.Item>
         </Descriptions>
         </div>
       </div>
