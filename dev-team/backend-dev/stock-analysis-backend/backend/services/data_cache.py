@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS timeshare_cache (
     PRIMARY KEY (code, trade_date, time_point)
 );
 
+CREATE TABLE IF NOT EXISTS generic_cache (
+    cache_key   TEXT PRIMARY KEY,
+    value       TEXT         NOT NULL,
+    expire_at   DATETIME     NOT NULL,
+    created_at  DATETIME DEFAULT (datetime('now','localtime'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_kline_code_date ON kline_cache(code, trade_date);
 CREATE INDEX IF NOT EXISTS idx_timeshare_code_date ON timeshare_cache(code, trade_date);
 """
@@ -316,8 +323,47 @@ class TimeshareCache:
 
 
 # ─────────────────────────────────────────────
+# 通用键值缓存（按日过期）
+# ─────────────────────────────────────────────
+
+class GenericCache:
+    """通用键值缓存，支持 TTL 秒"""
+
+    async def get(self, key: str) -> Optional[str]:
+        """读取缓存，过期返回 None"""
+        try:
+            async with async_session_factory() as db:
+                row = await db.execute(
+                    text("SELECT value FROM generic_cache WHERE cache_key = :key AND expire_at > datetime('now','localtime')"),
+                    {"key": key},
+                )
+                r = row.fetchone()
+                if r:
+                    return r[0]
+        except Exception as e:
+            logger.debug(f"通用缓存读取失败 {key}: {e}")
+        return None
+
+    async def set(self, key: str, value: str, ttl_seconds: int = 86400):
+        """写入缓存，默认24小时"""
+        try:
+            async with async_session_factory() as db:
+                await db.execute(
+                    text("""
+                        INSERT OR REPLACE INTO generic_cache (cache_key, value, expire_at)
+                        VALUES (:key, :value, datetime('now','localtime', '+' || :ttl || ' seconds'))
+                    """),
+                    {"key": key, "value": value, "ttl": str(ttl_seconds)},
+                )
+                await db.commit()
+        except Exception as e:
+            logger.warning(f"通用缓存写入失败 {key}: {e}")
+
+
+# ─────────────────────────────────────────────
 # 全局单例
 # ─────────────────────────────────────────────
 
 kline_cache = KlineCache()
 timeshare_cache = TimeshareCache()
+generic_cache = GenericCache()

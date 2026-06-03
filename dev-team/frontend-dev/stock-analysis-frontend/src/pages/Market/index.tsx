@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { Row, Col, Card, Tag, Spin, Typography, Space, Button, Switch, Divider } from 'antd';
 import {
@@ -19,6 +19,8 @@ import MarketOverview from './MarketOverview';
 import StockQuoteTable from './StockQuoteTable';
 import StockDetailDrawer from './StockDetailDrawer';
 import DataSourceIndicator from './DataSourceIndicator';
+import SectorCard from '../../components/SectorCard';
+
 
 const { Text } = Typography;
 
@@ -47,6 +49,32 @@ const MarketPage: React.FC = () => {
     setQuoteFilter, setRefreshInterval, setAutoRefresh,
     openDetail, closeDetail, refreshDetail, applyQuoteUpdate,
   } = useMarketStore();
+
+  // ── 涨跌分布 & 板块排行 ──
+  const [advDecl, setAdvDecl] = useState<{ up: number; down: number; flat: number; total: number; limit_up: number; limit_down: number } | null>(null);
+  const [industries, setIndustries] = useState<any[]>([]);
+  const [concepts, setConcepts] = useState<any[]>([]);
+  const [sectorsLoading, setSectorsLoading] = useState(false);
+
+  const fetchAdvDecl = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/market/advance-decline').then(r => r.json());
+      if (res && res.total > 0) setAdvDecl(res);
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchSectors = useCallback(async () => {
+    setSectorsLoading(true);
+    try {
+      const [indRes, conRes] = await Promise.all([
+        fetch('/api/v1/market/industry-ranking?count=10').then(r => r.json()).catch(() => []),
+        fetch('/api/v1/market/concept-sectors').then(r => r.json()).catch(() => []),
+      ]);
+      if (Array.isArray(indRes)) setIndustries(indRes);
+      if (Array.isArray(conRes)) setConcepts(conRes);
+    } catch { /* ignore */ }
+    setSectorsLoading(false);
+  }, []);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -77,7 +105,9 @@ const MarketPage: React.FC = () => {
     fetchMarketIndices(true);
     fetchQuotesWithAnomalies();
     fetchDataSourceState();
-  }, [fetchMarketIndices, fetchQuotesWithAnomalies, fetchDataSourceState]);
+    fetchAdvDecl();
+    fetchSectors();
+  }, [fetchMarketIndices, fetchQuotesWithAnomalies, fetchDataSourceState, fetchAdvDecl, fetchSectors]);
 
   // ========== Auto refresh timer ==========
   useEffect(() => {
@@ -132,7 +162,9 @@ const MarketPage: React.FC = () => {
     fetchMarketIndices();
     fetchStockQuotes();
     fetchDataSourceState();
-  }, [fetchMarketIndices, fetchStockQuotes, fetchDataSourceState]);
+    fetchAdvDecl();
+    fetchSectors();
+  }, [fetchMarketIndices, fetchStockQuotes, fetchDataSourceState, fetchAdvDecl, fetchSectors]);
 
   const handleQuoteRefresh = useCallback(() => {
     fetchStockQuotes();
@@ -213,18 +245,22 @@ const MarketPage: React.FC = () => {
         </Space>
       </div>
 
-      {/* 指数预览卡片 — 横向顶置 */}
-      <Card size="small" style={{ borderRadius: 8, marginBottom: 12 }}
-        styles={{ body: { padding: '8px 12px' } }}
-        title={
-          <Space>
-            <StockOutlined style={{ color: '#52c41a', fontSize: 18 }} />
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#389e0d' }}>指数预览</span>
-          </Space>
-        }
-      >
-        <MarketOverview indices={marketIndices} loading={indicesLoading} />
-      </Card>
+      {/* 三卡片：大盘概览 | 行业TOP5 | 概念TOP5 */}
+      <Row gutter={12} style={{ marginBottom: 12 }}>
+        <Col xs={24} sm={24} md={8}>
+          <MarketOverview
+            indices={marketIndices}
+            loading={indicesLoading}
+            advDecl={advDecl}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <SectorCard title="行业TOP10" items={industries} loading={sectorsLoading} emptyText="暂无行业数据" />
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <SectorCard title="概念TOP10" items={concepts} loading={sectorsLoading} emptyText="暂无概念数据" />
+        </Col>
+      </Row>
 
       {/* Stock quote table */}
       <StockQuoteTable

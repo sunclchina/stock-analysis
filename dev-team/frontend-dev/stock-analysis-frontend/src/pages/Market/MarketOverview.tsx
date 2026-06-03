@@ -1,5 +1,8 @@
+/**
+ * 大盘概览卡片（左侧） — 指数预览 + 涨跌分布
+ */
 import React from 'react';
-import { Row, Col, Spin, Typography, Tooltip } from 'antd';
+import { Card, Spin, Typography, Tooltip } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, MinusOutlined } from '@ant-design/icons';
 import type { MarketIndex } from '../../types/market';
 
@@ -8,74 +11,73 @@ const { Text } = Typography;
 interface MarketOverviewProps {
   indices: MarketIndex[];
   loading: boolean;
+  advDecl: {
+    up: number; down: number; flat: number; total: number;
+    limit_up: number; limit_down: number;
+  } | null;
 }
 
-function changeColor(v: number): string {
-  if (v > 0) return '#cf1322';
-  if (v < 0) return '#389e0d';
-  return '#8c8c8c';
-}
+const sf = (v: number | null | undefined, d = 2) => v != null ? v.toFixed(d) : '—';
+const fmt = (n: number) => (n ?? 0).toLocaleString();
+const pctColor = (v: number) => v > 0 ? '#cf1322' : v < 0 ? '#389e0d' : '#8c8c8c';
 
-function changeIcon(v: number) {
-  if (v > 0) return <ArrowUpOutlined style={{ color: '#cf1322', fontSize: 10 }} />;
-  if (v < 0) return <ArrowDownOutlined style={{ color: '#389e0d', fontSize: 10 }} />;
-  return <MinusOutlined style={{ color: '#8c8c8c', fontSize: 10 }} />;
-}
-
-const MarketOverview: React.FC<MarketOverviewProps> = ({ indices, loading }) => {
+const MarketOverview: React.FC<MarketOverviewProps> = ({ indices, loading, advDecl }) => {
   if (loading && indices.length === 0) {
-    return <div style={{ textAlign: 'center', padding: 16 }}><Spin size="small" /></div>;
-  }
-  if (indices.length === 0) {
-    return <div style={{ textAlign: 'center', padding: 16 }}><Text type="secondary">暂无大盘指数数据</Text></div>;
+    return <Card size="small" style={{ borderRadius: 8, height: '100%' }}>
+      <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+    </Card>;
   }
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-      gap: 8,
-    }}>
-      {indices.map((idx) => {
-        const color = changeColor(idx.changePercent);
-        return (
-          <Tooltip
-            key={idx.code}
-            title={
+    <Card size="small" style={{ borderRadius: 8, height: '100%' }}
+      title={<span style={{ fontSize: 14, fontWeight: 700 }}>大盘概览</span>}
+    >
+      {/* 指数预览 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {indices.map((idx) => {
+          const color = pctColor(idx.changePercent);
+          return (
+            <Tooltip key={idx.code} title={
               <div style={{ fontSize: 12, lineHeight: 1.8 }}>
-                <div>开盘 {idx.openPrice.toFixed(2)}</div>
-                <div>最高 {idx.high.toFixed(2)}</div>
-                <div>最低 {idx.low.toFixed(2)}</div>
-                <div>昨收 {idx.prevClose.toFixed(2)}</div>
-                <div>成交量 {(idx.volume / 1e8).toFixed(2)}亿</div>
-                <div>成交额 {(idx.amount / 1e8).toFixed(2)}亿</div>
+                开 {sf(idx.openPrice)} 高 {sf(idx.high)} 低 {sf(idx.low)}<br />
+                昨收 {sf(idx.prevClose)} 量 {sf(idx.volume / 1e8, 0)}亿 额 {sf(idx.amount / 1e8, 0)}亿
               </div>
-            }
-            placement="bottom"
-          >
-            <div style={{
-              background: idx.changePercent > 0 ? '#fff1f0' : idx.changePercent < 0 ? '#f6ffed' : '#fafafa',
-              borderRadius: 6,
-              padding: '8px 12px',
-              borderLeft: `3px solid ${color}`,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
-            >
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>{idx.name}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1.3 }}>{idx.latestPrice.toFixed(2)}</div>
-              <div style={{ fontSize: 11, color, display: 'flex', gap: 6, alignItems: 'center' }}>
-                {changeIcon(idx.changePercent)}
-                <span>{idx.change > 0 ? '+' : ''}{idx.change.toFixed(2)}</span>
-                <span>{idx.changePercent > 0 ? '+' : ''}{idx.changePercent.toFixed(2)}%</span>
+            }>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '5px 8px', borderRadius: 4, cursor: 'default',
+                background: idx.changePercent > 0 ? '#fff1f0' : idx.changePercent < 0 ? '#f6ffed' : '#fafafa',
+              }}>
+                <div style={{ fontSize: 12, color: '#666', minWidth: 50 }}>{idx.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color, minWidth: 70, textAlign: 'right' }}>{sf(idx.latestPrice)}</div>
+                <div style={{ fontSize: 12, color, minWidth: 60, textAlign: 'right' }}>
+                  {idx.changePercent > 0 ? <ArrowUpOutlined /> : idx.changePercent < 0 ? <ArrowDownOutlined /> : <MinusOutlined />}
+                  {' '}{idx.changePercent > 0 ? '+' : ''}{sf(idx.changePercent)}%
+                </div>
               </div>
-            </div>
-          </Tooltip>
-        );
-      })}
-    </div>
+            </Tooltip>
+          );
+        })}
+      </div>
+
+      {/* 涨跌分布 */}
+      {advDecl && advDecl.total > 0 && (
+        <div style={{
+          borderTop: '1px solid #f0f0f0', marginTop: 8, paddingTop: 6,
+          display: 'flex', flexWrap: 'wrap', gap: '4px 8px', justifyContent: 'center',
+          fontSize: 12,
+        }}>
+          <span><span style={{ color: '#cf1322', fontWeight: 700 }}>↑</span> 上涨 <b style={{ color: '#cf1322' }}>{fmt(advDecl.up)}</b></span>
+          <span style={{ color: '#d9d9d9' }}>|</span>
+          <span><span style={{ color: '#8c8c8c', fontWeight: 700 }}>—</span> 平盘 <b>{fmt(advDecl.flat)}</b></span>
+          <span style={{ color: '#d9d9d9' }}>|</span>
+          <span><span style={{ color: '#389e0d', fontWeight: 700 }}>↓</span> 下跌 <b style={{ color: '#389e0d' }}>{fmt(advDecl.down)}</b></span>
+          <span style={{ color: '#d9d9d9' }}>|</span>
+          <span>涨停 <b style={{ color: '#cf1322' }}>{advDecl.limit_up}</b></span>
+          <span>跌停 <b style={{ color: '#389e0d' }}>{advDecl.limit_down}</b></span>
+        </div>
+      )}
+    </Card>
   );
 };
 
