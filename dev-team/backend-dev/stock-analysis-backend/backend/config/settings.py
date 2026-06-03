@@ -68,8 +68,11 @@ class Settings(BaseSettings):
     """应用配置，从环境变量加载"""
 
     # 后端服务
+    # 端口分配约定：
+    #   开发环境：前端 8080（原则⑦），后端 8000
+    #   Docker 调试版本：后端 8081（通过 .env 或环境变量覆盖）
     backend_host: str = Field(default="0.0.0.0", alias="BACKEND_HOST")
-    backend_port: int = Field(default=8081, alias="BACKEND_PORT")
+    backend_port: int = Field(default=8000, alias="BACKEND_PORT")
     backend_reload: bool = Field(default=True, alias="BACKEND_RELOAD")
 
     # 数据库

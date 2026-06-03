@@ -27,6 +27,21 @@ task_push_test.json
 test_response.json
 test_login_flow.js
 stock-analysis-20260508-run-cmd.txt
+check_*.py
+test_*.py
+*_stderr*.log
+*_stdout*.log
+
+# Auto-generated cache files (regenerated at runtime)
+dev-team/backend-dev/stock-analysis-backend/backend/data/kline_cache/
+dev-team/backend-dev/stock-analysis-backend/logs/
+dev-team/backend-dev/stock-analysis-backend/data/a_share_cache/
+dev-team/backend-dev/stock-analysis-backend/data/event_cache/
+dev-team/backend-dev/stock-analysis-backend/data/premarket_cache/
+
+# Frontend build output
+dev-team/frontend-dev/stock-analysis-frontend/dist/
+dev-team/frontend-dev/stock-analysis-frontend/node_modules/
 
 # Workspace root temp scripts
 add_total*.py

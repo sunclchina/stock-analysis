@@ -211,9 +211,9 @@ const PatternSelectionTab: React.FC = () => {
       render: (code: string, r: any) => <a onClick={() => setDetailStock(r)} style={{ fontWeight: 700, fontSize: 13 }}>{code}</a> },
     { title: '名称', dataIndex: 'name', width: 100,
       render: (v: string, r: any) => <a onClick={() => setDetailStock(r)} style={{ fontWeight: 600 }}>{v}</a> },
-    { title: '最新价', dataIndex: 'price', width: 80, render: (v: any) => Number(v)?.toFixed(2) },
+    { title: '最新价', dataIndex: 'price', width: 80, render: (v: any) => v != null ? Number(v).toFixed(2) : '—' },
     { title: '涨幅', dataIndex: 'change_pct', width: 80, render: (v: any) => {
-      if (v == null) return '-';
+      if (v == null) return '—';
       const color = v >= 0 ? '#f5222d' : '#52c41a';
       return <span style={{ color, fontWeight: 600 }}>{v > 0 ? '+' : ''}{v.toFixed(2)}%</span>;
     }},
