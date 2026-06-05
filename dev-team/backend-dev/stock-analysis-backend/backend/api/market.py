@@ -2039,7 +2039,39 @@ async def global_indices():
 
 @router.get("/industry-ranking")
 async def industry_ranking(sort: str = "0", count: int = 20):
-    return await _market_ext.get_industry_ranking(sort, count)
+    """行业涨幅排名。优先 QQ Finance，降级到 akshare。"""
+    # 首选项：QQ Finance（通过 market_ext）
+    try:
+        result = await _market_ext.get_industry_ranking(sort, count)
+        if result and len(result) > 0:
+            return result
+    except Exception as e:
+        logger.warning(f"行业排名-QQFinance失败: {e}")
+
+    # 降级：akshare 东方财富行业板块
+    try:
+        import akshare as _ak
+        loop = asyncio.get_event_loop()
+        df = await loop.run_in_executor(None, _ak.stock_board_industry_spot_em)
+        if df is not None and not df.empty:
+            df = df.head(count)
+            result = []
+            for _, r in df.iterrows():
+                result.append({
+                    "name": str(r.get("板块名称", "")),
+                    "code": str(r.get("板块代码", "")),
+                    "avg_change_pct": float(r.get("涨跌幅", 0)),
+                    "leading_stock": str(r.get("龙头股", "")) if r.get("龙头股") is not None and str(r.get("龙头股")) != "nan" else "",
+                    "leading_stock_code": str(r.get("龙头股代码", "")) if r.get("龙头股代码") is not None else "",
+                    "leading_stock_change": float(r.get("龙头股涨跌幅", 0)) if r.get("龙头股涨跌幅") is not None else 0,
+                })
+            if result:
+                logger.info(f"行业排名-akshare降级: {len(result)} 条")
+                return result
+    except Exception as e:
+        logger.warning(f"行业排名-akshare降级失败: {e}")
+
+    return []
 
 
 @router.get("/industry-money-flow")
