@@ -1,6 +1,6 @@
 # 股票分析与投资决策系统
 
-面向个人投资者的量化分析与投资决策平台。单端口部署（后端托管前端静态文件），开箱即用。
+面向个人投资者的量化分析与投资决策平台。后端 FastAPI + 前端 React/Ant Design，异步全栈。
 
 涵盖实时行情、智能选股、技术指标分析、七维预警系统、资产组合管理与操盘笔记等功能模块。
 
@@ -19,14 +19,14 @@
   - [资产组合](#资产组合)
   - [操盘笔记](#操盘笔记)
   - [系统配置](#系统配置)
-  - [管理员后台](#管理员后台)
+  - [用户管理](#用户管理)
 - [数据源系统](#数据源系统)
-- [快速启动](#快速启动)
-- [环境配置](#环境配置部署前必读)
-- [构建与部署](#构建生产版本)
+- [开发环境启动](#开发环境启动)
+- [环境配置（部署前必读）](#环境配置部署前必读)
+- [Docker 构建与部署](#docker-构建与部署)
 - [界面导航](#界面导航)
 - [目录结构](#目录结构)
-- [常见问题](#常见问题)
+- [注意事项](#注意事项)
 
 ---
 
@@ -45,19 +45,20 @@
 │  │行情  │ │选股  │ │预警  │ │分析  │ │配置  │ │笔记  │ │
 │  │API   │ │引擎  │ │引擎  │ │引擎  │ │管理  │ │系统  │ │
 │  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ │
-│                     SQLite / 关系数据库                    │
+│                     SQLite 数据库                         │
 ├──────────────────────────────────────────────────────────┤
 │                   多源数据接入层                            │
-│  东方财富 ← 新浪财经 ← AKShare ← Baostock+ ← 其他       │
-│  (自动降级：主数据源失效时无缝切换备用源)                    │
+│  新浪财经 ← 东方财富 ← AKShare ← Baostock+ ← 其他       │
+│  (按模块优先级自动降级：主数据源失效时无缝切换)              │
 └──────────────────────────────────────────────────────────┘
 ```
 
 **设计原则：**
-- 单端口部署 —— FastAPI 同时提供 API 与前端静态文件服务
-- 多源自动降级 —— 主数据源连续失败自动切备用源
-- 异步优先 —— 全异步 I/O，行情推送走 WebSocket
-- 缓存分层 —— 内存缓存(6h TTL) → 磁盘缓存 → 原始 API
+- 前端开发（8080）+ 后端开发（8000）分离；Docker 单端口 8081 部署
+- 多源按模块优先级自动降级
+- 全异步 I/O，行情推送走 WebSocket
+- 缓存分层：内存缓存 → SQLite 磁盘缓存 → 原始 API
+- 无人使用时自动静默（无 WebSocket 连接且 10 分钟无 HTTP 请求则跳过行情轮询）
 
 ---
 
@@ -70,7 +71,8 @@
 - **系统状态** — 活跃数据源、WebSocket 连接数、预警引擎运行状态、监控池股票数
 - **大盘概览** — 上证/深证/创业板/科创50/沪深300 等关键指数实时行情
 - **A股概况** — 沪市、深市、北交所、ETF 数量统计（按代码前缀归类）
-- **预警汇总** — 按预警类型（价格/趋势/事件/财务等）和级别（info/warning/danger/critical）统计
+- **预警汇总** — 按预警类型（价格/趋势/事件/财务等）和级别统计
+- **决策参考** — 监控池个股量化评分、买卖建议、评分明细（趋势/动量/量价/风控）
 - **最近分析结论** — 显示最近生成的智能分析结果
 - **自选/监控池快照** — 快速查看自选股和监控池状态
 
@@ -82,20 +84,19 @@ A股全市场实时行情查询与展示。
 
 - **行情概览** — 沪深主要指数实时行情（含涨跌幅、成交额）
 - **涨跌分布** — 上涨/下跌/平盘家数统计
-- **板块行情** — 行业板块/概念板块涨跌排行
-- **涨跌停梯队** — 涨停/跌停股票列表（涨停股池 + 东方财富实时行情筛选）
+- **板块行情** — 行业板块 TOP10、概念板块 TOP10 涨跌排行（自动降级：QQ Finance → akshare）
 - **个股详情** — 分时图、K线图（支持多周期：日/周/月）、技术指标（MA/MACD/KDJ/RSI）
-- **全球指数/行业** — 外围市场、商品、汇率、行业板块
-- **盘前数据** — 竞价阶段数据
-- **资金流向** — 个股/板块主力资金流入流出
-- **北向资金** — 沪深港通资金流向
+- **全球指数/行业** — 全球主要指数（美/欧/亚）、商品/外汇、行业板块排行、行业资金流向、个股资金流向
+- **盘前提示** — AI 生成盘前市场预测、关键点位、板块推荐、风险提示
+- **涨跌停梯队** — 涨停梯队（连板数统计）、跌停梯队
+- **涨停股池** — 涨停股票列表（实时刷新）
 - **交易日历** — A股交易日/休市日查询
 
 ---
 
 ### 智能选股
 
-多策略选股引擎，支持固定规则与自定义指标选股。
+多策略选股引擎，支持固定规则与指标选股。
 
 **① 固定规则选股**
 内置预定义策略，一键执行：
@@ -137,7 +138,7 @@ A股全市场实时行情查询与展示。
 
 ### 智能分析
 
-AI 驱动的个股深度分析。
+AI 驱动的个股深度分析（需配置 DEEPSEEK_API_KEY）。
 
 - **个股研报** — 多维度的股票研究报告
 - **股吧/新闻情绪分析** — 自然语言处理舆情数据
@@ -161,16 +162,16 @@ AI 驱动的个股深度分析。
 | 事件预警 | 负面事件检测 | 减持公告、监管问询、立案调查 |
 | 风险预警 | 综合风险评估 | 质押强平、债务违约、欺诈识别 |
 
-- 监控池管理（添加/移除监控标的，单用户上限50只）
+- 监控池管理（添加/移除监控标的）
 - 预警记录列表（按类型/时间/级别筛选）
-- 综合决策矩阵（多维度信号聚合展示）
+- 综合决策矩阵（多维度信号聚合展示，量化评分）
 - WebSocket 实时推送预警
 
 ---
 
 ### 资产组合
 
-投资组合管理与绩效跟踪。
+投资组合管理与绩效跟踪（功能实现中，后端 API 就绪，前端展示中）。
 
 - 创建/管理多个投资组合
 - 记录买入/卖出交易
@@ -198,18 +199,20 @@ AI 驱动的个股深度分析。
 
 | 配置页 | 功能 |
 |--------|------|
-| 数据源管理 | 查看数据源状态、连接测试、手动切换主力/备用源 |
-| 个人设置 | 修改昵称/密码、东财选股器标识（qgqp_b_id）、预警声音开关 |
-| 模板管理 | 管理智能分析报告模板、选股结果模板 |
-| 自定义数据源 | 添加第三方付费数据源（Wind、Tushare 等）|
+| 个人资料 | 修改昵称、密码 |
 | 自选股管理 | 添加/删除自选股，从通达信导入、从选股结果导入 |
-| 监控池管理 | 管理预警监控标的，设置监控参数 |
+| 监控池管理 | 管理预警监控标的 |
+| 数据源管理 | 查看数据源状态、连接测试、手动切换主力/备用源 |
+| 偏好设置 | 主题切换（暗色/亮色）、东财选股器标识（qgqp_b_id）、预警声音开关 |
+| 模板管理 | 管理智能分析报告模板、选股结果模板 |
+| 系统状态 | 后端运行状态、数据库健康检查 |
+| 自定义数据源 | 添加第三方数据源（预留） |
 
 ---
 
-### 管理员后台
+### 用户管理
 
-系统管理功能（仅管理员角色可见）。
+用户管理功能（仅管理员角色可见）。
 
 - 用户列表与搜索
 - 用户角色管理（普通用户/管理员）
@@ -219,7 +222,7 @@ AI 驱动的个股深度分析。
 
 ## 数据源系统
 
-系统内置多层数据源，支持主/备用自动切换。
+系统内置多层数据源，按模块配置独立优先级顺序，自动降级。
 
 ### 数据源架构
 
@@ -227,60 +230,78 @@ AI 驱动的个股深度分析。
 外部数据源（网络 API）
   ├── 东方财富 (eastmoney) — 主力行情/基本面/选股器
   ├── 新浪财经 (sina) — 备用行情/全市场代码
-  ├── AKShare — 概念板块/资金流/ETF/补充数据
-  ├── Baostock — 历史K线/分钟线（应急备用）
-  └── 通达信本地 (tdx_local) — 本地缓存文件解析（可选）
+  ├── AkShare — 概念板块/资金流/ETF/补充数据
+  ├── Baostock — 历史K线/分钟线（本地环境兼容）
+  └── 通达信本地 (tdx_local) — 本地缓存文件解析（需配置，Docker 环境禁用）
 
 内部数据缓存
   ├── 内存缓存 — 6小时 TTL，减少重复请求
-  └── 磁盘缓存 — data/cache/、data/kline_cache/ 等
+  └── SQLite 磁盘缓存 — kline_cache 等
 ```
 
-### 自动降级策略
+### 模块优先级
 
-每个模块有独立的数据源优先级顺序，可精确配置：
+每个模块有独立的数据源优先级顺序：
 
 | 模块 | 优先顺序 |
 |------|---------|
 | 市场行情 | sina → eastmoney → baostock |
-| **K线数据** | **eastmoney → sina → baostock** |
+| K线数据 | baostock → eastmoney → sina |
 | 板块涨跌 | akshare → eastmoney |
 | 涨停股池 | akshare → eastmoney |
 | 北向资金 | akshare |
 | 盘前数据 | eastmoney → sina |
 | 智能选股池 | tdx_local → sina → eastmoney |
 | 预警行情 | eastmoney → sina → tdx_local |
+| 选股基本面 | akshare |
+| 股票名称查询 | eastmoney → sina → tdx_local |
 
-> 当主数据源连续 3 次请求失败时自动切换至下一优先级源，主源恢复后自动切回。
+> 主数据源连续失败自动切换至下一优先级源，主源恢复后自动切回。
 
 ---
 
-## 快速启动
+## 开发环境启动
 
 ### 前提条件
 
 | 组件 | 最低版本 |
 |------|---------|
 | Python | 3.10+ |
+| Node.js | 18+ |
 
-### 1. 创建配置文件
+### 1. 配置环境变量
 
 ```powershell
-# 从模板创建
+# 从模板创建（项目根目录）
 cp .env.example .env
 ```
 
-> 📍 `.env` 唯一配置文件位于项目根目录，代码会自动从根目录读取。
-> 不要在后端子目录下创建 `.env`，那里不会被读取。
+> `.env` 唯一配置文件位于项目根目录，后端自动从根目录读取。
 
-### 2. 安装依赖 & 启动
+### 2. 启动后端
 
 ```powershell
+cd dev-team\backend-dev\stock-analysis-backend
 pip install -r requirements.txt
-python -m backend.main
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-访问 **http://localhost:8000**
+### 3. 启动前端（开发模式）
+
+```powershell
+cd dev-team\frontend-dev\stock-analysis-frontend
+npm install
+npx vite --port 8080 --host
+```
+
+访问 **http://localhost:8080**
+
+### 4. 一键启动（开发环境）
+
+```powershell
+# 后端 + 前端同时启动
+.\dev-team\devops\start-all.ps1
+```
 
 ---
 
@@ -288,72 +309,65 @@ python -m backend.main
 
 ### ⚠️ 必须配置的项
 
-> **不配置就无法安全运行**的项，部署前务必完成设置：
-
 | 优先级 | 配置项 | 说明 | 不配的后果 | 获取方式 |
 |--------|--------|------|-----------|---------|
 | 🔴 **必须** | `JWT_SECRET` | JWT 签名密钥 | Token 可被伪造，**安全风险** | `python -c "import secrets; print(secrets.token_hex(32))"` 生成 |
 | 🟡 **推荐** | `DEEPSEEK_API_KEY` | DeepSeek AI 密钥 | AI 智能分析不可用，核心功能不受影响 | [DeepSeek 开放平台](https://platform.deepseek.com/) |
-| 🟡 **推荐** | `DEFAULT_ADMIN_PASSWORD` | 管理员密码 | 默认弱密码 `admin123`，安全风险 | 自行设置 |
+| 🟡 **推荐** | `DEFAULT_ADMIN_PASSWORD` | 管理员密码 | 默认弱密码，安全风险 | 自行设置 |
 
-> - 编辑项目根目录下的 `.env` 文件完成配置
-> - 编辑后重启服务生效
+> 编辑项目根目录下的 `.env` 文件完成配置，编辑后重启服务生效。
 
 ### 其他配置项
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
+| `BACKEND_PORT` | `8081` | 后端端口（Docker 默认 8081，开发环境可覆盖为 8000） |
 | `PRIMARY_DATA_SOURCE` | `eastmoney` | 主力数据源 |
-| `FALLBACK_DATA_SOURCE` | `eastmoney` | 备用数据源 |
-| `TDX_ENABLED` | `true` | 是否启用通达信本地数据源 |
-| `CORS_ORIGINS` | `["http://localhost:8080"]` | 跨域白名单 |
+| `FALLBACK_DATA_SOURCE` | `sina` | 备用数据源 |
+| `TDX_ENABLED` | `false` | 是否启用通达信本地数据源（Docker 环境默认关闭） |
+| `CORS_ORIGINS` | `["http://localhost:8000"]` | 跨域白名单（开发前端 8080 时需改为 8080） |
+| `LOG_LEVEL` | `INFO` | 日志级别（可选 DEBUG/INFO/WARNING/ERROR） |
 
 ---
 
-## 构建生产版本
+## Docker 构建与部署
 
-### 方案一：直接运行（推荐）
-
-后端已包含前端静态文件（`backend/static/`），一个命令启动：
-
-```powershell
-cd dev-team\backend-dev\stock-analysis-backend
-python -m backend.main
-```
-
-访问 `http://localhost:8000`
-
-### 方案二：Docker（推荐）
+### 构建镜像
 
 ```bash
 # 从仓库根目录构建
 docker build -t stock-analysis -f Dockerfile .
 
-# 运行容器（.env 和数据卷通过挂载注入）
+# 或使用 docker-compose
+docker compose up -d
+```
+
+### 运行容器
+
+```bash
 docker run -d --name stock-analysis \
-  -p 8000:8000 \
+  -p 8081:8081 \
   -v /path/to/.env:/app/.env \
   -v /path/to/data:/app/data \
   stock-analysis
 ```
 
-### 方案三：重新构建前端 + 后端打包
+访问 **http://localhost:8081**
 
-如需修改前端代码后重新构建：
+> **端口说明**：Docker 版本使用 8081 端口（避开 8080 常见端口冲突）。
+> 开发环境：前端 8080 + 后端 8000 分离运行。
 
-```powershell
-# 构建前端
-cd dev-team\frontend-dev\stock-analysis-frontend
-npm install
-npm run build
+### 数据卷挂载
 
-# 复制到后端静态目录
-Copy-Item "dist\*" "..\..\backend-dev\stock-analysis-backend\backend\static\" -Recurse -Force
+```bash
+# 持久化数据（数据库、缓存、笔记等）
+-v /host/data/path:/app/data
 
-# 启动后端
-cd ..\..\backend-dev\stock-analysis-backend
-python -m backend.main
+# 配置文件
+-v /host/path/.env:/app/.env
 ```
+
+未挂载数据卷时，数据存储在容器临时文件系统中，容器删除后丢失。
 
 ---
 
@@ -361,17 +375,17 @@ python -m backend.main
 
 | 菜单 | 路径 | 模块 |
 |------|------|------|
-| 📊 仪表盘 | `/` | 仪表盘 |
-| 📈 实时行情 | `/market` | 行情概览 / 涨跌分布 |
-| 🌍 全球指数/行业 | `/market-ext` | 外围市场、商品、行业板块 |
+| 📊 仪表盘 | `/` | 仪表盘概览 |
+| 📈 实时行情 | `/market` | 行情概览 / 涨跌分布 / 板块排行 |
+| 🌍 全球指数/行业 | `/market-ext` | 外围市场、商品、行业板块、资金流向 |
 | 🎯 智能选股 | `/selection` | 固定规则 / 指标 / 自定义 |
 | 📋 研究中心 | `/market-research` | 研报、公告、行业研报 |
 | 📐 智能分析 | `/analysis` | AI 个股深度分析 |
-| 🔔 智能预警 | `/warning` | 七维预警 / 决策矩阵 |
+| 🔔 智能预警 | `/warning` | 七维预警 / 监控面板 / 决策矩阵 |
 | 💼 资产组合 | `/portfolio` | 投资组合管理 |
 | 📝 操盘笔记 | `/notes` | 交易笔记系统 |
-| ⚙️ 系统配置 | `/config` | 数据源 / 自选 / 模板 / 监控 |
-| 👥 用户管理 | `/users` | 管理员后台 |
+| ⚙️ 系统配置 | `/config` | 个人设置 / 自选股 / 监控 / 数据源 / 模板 |
+| 👥 用户管理 | `/users` | 管理员后台（用户列表/角色管理） |
 
 ---
 
@@ -380,7 +394,8 @@ python -m backend.main
 ```
 stock-analysis/
 ├── .env.example                  # 配置模板（复制为 .env 后编辑）
-├── Dockerfile                    # 单阶段构建（后端 + 前端静态）
+├── Dockerfile                    # Docker 构建文件
+├── docker-compose.yml            # Docker Compose 配置
 ├── requirements.txt              # Python 依赖
 ├── .gitignore
 ├── README.md
@@ -389,15 +404,16 @@ stock-analysis/
 │   ├── backend-dev/
 │   │   └── stock-analysis-backend/
 │   │       ├── backend/          # Python 源码（FastAPI）
-│   │       │   ├── main.py       # 应用入口
+│   │       │   ├── main.py       # 应用入口 + 定时任务调度
 │   │       │   ├── api/          # API 路由模块
 │   │       │   │   ├── dashboard.py       # 仪表盘
-│   │       │   │   ├── market.py          # 实时行情
+│   │       │   │   ├── market.py          # 实时行情（~2400行）
 │   │       │   │   ├── warning.py         # 智能预警（列表/详情）
 │   │       │   │   ├── warning_monitor.py # 监控面板/实时
 │   │       │   │   ├── selection.py       # 智能选股
 │   │       │   │   ├── analysis.py        # 智能分析
 │   │       │   │   ├── config_api.py      # 系统配置
+│   │       │   │   ├── custom_datasource.py # 自定义数据源
 │   │       │   │   ├── portfolio.py       # 资产组合
 │   │       │   │   ├── note.py            # 操盘笔记
 │   │       │   │   ├── auth.py            # 用户认证
@@ -419,69 +435,110 @@ stock-analysis/
 │   │       │   │   ├── analysis_engine/   # 分析引擎
 │   │       │   │   ├── market_ext.py      # 外围市场/指标选股/涨停
 │   │       │   │   ├── backtest_engine.py # 回测引擎
-│   │       │   │   ├── scheduler.py       # 后台定时任务
-│   │       │   │   └── websocket_manager.py # WebSocket 连接管理
+│   │       │   │   ├── scheduler.py       # 后台定时任务调度
+│   │       │   │   ├── websocket_manager.py # WebSocket 连接管理
+│   │       │   │   └── ...                # 其他辅助服务
 │   │       │   ├── utils/        # 工具函数（缓存/指标计算/TDX解析）
 │   │       │   └── static/       # 前端静态文件（Vite 构建产物）
-│   │       └── deploy/           # 部署脚本
+│   │       ├── logs/             # 运行日志
+│   │       └── data/             # 运行时数据
+│   │           ├── cache/stock.db        # SQLite 数据库
+│   │           ├── cache/events_*.json   # 事件缓存
+│   │           ├── kline_cache/*.json    # K线缓存
+│   │           └── reports/              # 分析报告
 │   │
 │   ├── frontend-dev/
 │   │   └── stock-analysis-frontend/   # 前端源码（React + Vite + Ant Design）
 │   │       ├── src/
 │   │       │   ├── pages/       # 页面组件
-│   │       │   ├── services/    # API 调用
-│   │       │   ├── store/       # 状态管理
-│   │       │   ├── types/       # TypeScript 类型定义
-│   │       │   └── layouts/     # 布局组件
+│   │       │   │   ├── Dashboard/      # 仪表盘
+│   │       │   │   ├── Market/         # 实时行情 + 个股详情
+│   │       │   │   ├── MarketExt/      # 全球指数/行业
+│   │       │   │   ├── MarketResearch/ # 研究中心
+│   │       │   │   ├── Selection/      # 智能选股
+│   │       │   │   ├── Analysis/       # 智能分析
+│   │       │   │   ├── Warning/        # 智能预警
+│   │       │   │   ├── Portfolio/      # 资产组合
+│   │       │   │   ├── Notes/          # 操盘笔记
+│   │       │   │   └── Config/         # 系统配置（7个子标签页）
+│   │       │   ├── services/   # API 调用
+│   │       │   ├── store/      # 状态管理（Zustand）
+│   │       │   ├── types/      # TypeScript 类型定义
+│   │       │   ├── components/ # 通用组件
+│   │       │   └── layouts/    # 布局（侧边栏导航）
 │   │       ├── package.json
 │   │       └── vite.config.ts
 │   │
+│   ├── devops/                  # 部署运维脚本
+│   │   ├── start-all.ps1       # 一键启动
+│   │   ├── start-backend.ps1   # 后端启动
+│   │   └── start-frontend.ps1  # 前端启动
+│   │
 │   └── snapshots/               # 架构/设计文档快照
 │
-├── data/                        # 运行时数据（日志/缓存/数据库）
-│   ├── cache/stock.db           # SQLite 数据库
-│   ├── kline_cache/             # K 线数据缓存
-│   ├── reports/                 # 分析报告
-│   └── a_share_cache/           # A 股概况缓存
-│
-└── logs/                        # 运行日志
+├── memory/                      # 青崖日常记录
+└── data/                        # 旧数据目录（归档）
 ```
 
 ---
 
-## 常见问题
+## 注意事项
 
-### Q: 启动后提示 JWT_SECRET 未设置
+### 空闲自动静默
+
+Docker 无人使用时，后台定时任务自动跳过行情查询（无 WebSocket 连接且 10 分钟无 HTTP 请求），不产生网络流量。
+
+### 交易日与非交易日
+
+- **非交易日**：所有行情刷新任务跳过，仅保留 WebSocket 心跳（30 秒/次）
+- **交易日**：按配置频率轮询行情，无人使用时自动静默
+
+### 数据持久化
+
+Docker 部署务必挂载数据卷，否则容器删除后数据库、笔记、自选股等全部丢失。
+
+### 数据源选择
+
+- 默认主力数据源为东方财富，备用新浪
+- Docker 环境通达信本地数据源默认关闭（`TDX_ENABLED=false`）
+- 行业排名优先使用 QQ Finance，不可用时自动降级到 akshare
+
+### 常见问题
+
+**Q: 启动后提示 JWT_SECRET 未设置**
 
 编辑 `.env`，用以下命令生成密钥：
 ```powershell
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-### Q: AI 分析功能不可用
+**Q: AI 分析功能不可用**
 
 `DEEPSEEK_API_KEY` 未配置，不影响行情/预警/选股等核心功能。
 如需启用，在 `.env` 中设置有效的 API Key。
 
-### Q: 数据源连接失败
+**Q: 行情/板块数据为空**
 
 检查 `.env` 中 `PRIMARY_DATA_SOURCE` 和 `FALLBACK_DATA_SOURCE` 配置。
 系统会自动降级到备用数据源，无需手动干预。
 
-### Q: 指标选股返回 501 错误
+**Q: Docker 中行业 TOP10 / 概念 TOP10 没有数据**
 
-东财选股器对部分自然语言关键词无法解析。建议使用如下关键词格式：
-- `MACD金叉`、`连续3年ROE大于15%`、`PE小于20`
-- 避免使用模糊词如 `均线多头` 等
+Docker 容器可能无法连接 QQ Finance API，系统已内置 akshare 降级方案。
+重启后首次请求稍慢（akshare 需加载数据）。
 
-### Q: Docker 中数据（笔记/自选股）丢失
+**Q: Docker 中数据（笔记/自选股）丢失**
 
 确保容器启动时正确挂载数据卷：
 ```bash
 docker run -d -v /host/data/path:/app/data ... stock-analysis
 ```
-`/app/data` 目录包含 SQLite 数据库、缓存文件等所有运行时数据。
-未挂载卷时，数据存储在容器临时文件系统中，容器删除后丢失。
+
+**Q: 指标选股返回 501 错误**
+
+东财选股器对部分自然语言关键词无法解析。建议使用如下关键词格式：
+- `MACD金叉`、`连续3年ROE大于15%`、`PE小于20`
+- 避免使用模糊词如 `均线多头` 等
 
 ---
 
