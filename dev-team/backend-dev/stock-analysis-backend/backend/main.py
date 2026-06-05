@@ -33,6 +33,41 @@ from backend.api.router import api_router
 from backend.services.websocket_manager import ws_manager
 from backend.services.scheduler import scheduler
 from backend.services.data_source.fallback import DataSourceManager
+from starlette.requests import Request
+from starlette.responses import Response
+
+
+# 用户活动跟踪：记录最后一次用户发起的 HTTP 请求时间（unix timestamp）
+_last_user_activity: float = 0.0
+
+
+def _update_activity():
+    """更新最后活动时间戳"""
+    import time
+    global _last_user_activity
+    _last_user_activity = time.time()
+
+
+def _is_system_idle() -> bool:
+    """判断系统是否处于无人使用状态。
+    满足任一条件即视为活跃：
+    - 有活跃的 WebSocket 连接（前端页面打开）
+    - 最近 IDLE_TIMEOUT 秒内有过 HTTP 请求
+    """
+    # 有 WebSocket 连接 → 有人在用
+    if ws_manager.count > 0:
+        return False
+    # 有最近的 HTTP 请求 → 有人在用
+    import time
+    IDLE_TIMEOUT = 600  # 10 分钟无请求即视为空闲
+    if time.time() - _last_user_activity < IDLE_TIMEOUT:
+        return False
+    return True
+
+
+IDLE_CHECK_ENABLED = True  # 开关，可禁用
+
+
 from backend.services.warning_engine import WarningEngine
 from backend.models.config import MonitorItem
 
@@ -102,10 +137,15 @@ async def _market_refresh_task():
     定时行情刷新任务。
     同时驱动预警引擎检查。
     非交易日自动跳过。
+    无人使用时自动跳过外部API调用。
     """
     try:
         # 非交易日跳过
         if not await _is_trading_day():
+            return
+
+        # 无人使用且无WebSocket连接 → 跳过行情查询
+        if _is_system_idle():
             return
 
         # 获取最新监控池列表
@@ -335,8 +375,10 @@ async def lifespan(app: FastAPI):
 
     # 6.5 自动交易引擎定时扫描
     async def _auto_trade_task():
-        """自动交易扫描任务（非交易日跳过）"""
+        """自动交易扫描任务（非交易日跳过，无人使用时跳过）"""
         if not await _is_trading_day():
+            return
+        if _is_system_idle():
             return
         try:
             from backend.services.auto_trade_engine import run_auto_trade
@@ -415,6 +457,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# 用户活动跟踪中间件：每次前端发起的请求都刷新活动时间
+@app.middleware("http")
+async def track_activity(request: Request, call_next):
+    # 忽略健康检查和内部轮询路径
+    path = request.url.path
+    if path in ("/api/v1/health", "/ws"):
+        return await call_next(request)
+    _update_activity()
+    return await call_next(request)
+
 
 # 注册所有API路由（统一前缀 /api/v1）
 app.include_router(api_router)
