@@ -20,7 +20,7 @@ interface SectorCardProps {
   emptyText?: string;
 }
 
-const pctColor = (v: number) => v > 0 ? '#cf1322' : v < 0 ? '#389e0d' : '#8c8c8c';
+const pctColor = (v: number | undefined | null) => v == null ? '#8c8c8c' : v > 0 ? '#cf1322' : v < 0 ? '#389e0d' : '#8c8c8c';
 
 const SectorCard: React.FC<SectorCardProps> = ({ title, items, loading, emptyText }) => {
   if (loading) {
@@ -61,7 +61,7 @@ const SectorCard: React.FC<SectorCardProps> = ({ title, items, loading, emptyTex
                     <span style={{ fontSize: 12, color: '#666' }}>{item.name}</span>
                   </span>
                   <span style={{ fontSize: 12, color, fontWeight: 700 }}>
-                    {item.avg_change_pct > 0 ? '+' : ''}{item.avg_change_pct.toFixed(2)}%
+                    {item.avg_change_pct != null ? (item.avg_change_pct > 0 ? '+' : '') + item.avg_change_pct.toFixed(2) + '%' : '—'}
                   </span>
                 </div>
               </Tooltip>

@@ -142,7 +142,7 @@ const StockQuoteTable: React.FC<StockQuoteTableProps> = ({
       width: 100,
       sorter: (a: StockQuote, b: StockQuote) => (a.latestPrice ?? 0) - (b.latestPrice ?? 0),
       align: 'right',
-      render: (price: number, record: StockQuote) => (
+      render: (price: number | undefined, record: StockQuote) => (
         <Text
           style={{
             fontSize: 14,
@@ -150,7 +150,7 @@ const StockQuoteTable: React.FC<StockQuoteTableProps> = ({
             color: changeColor(record.changePercent),
           }}
         >
-          {price.toFixed(2)}
+          {price != null ? price.toFixed(2) : '—'}
         </Text>
       ),
     },
@@ -175,7 +175,7 @@ const StockQuoteTable: React.FC<StockQuoteTableProps> = ({
         >
           {changeIcon(percent)}
           {' '}
-          {percent > 0 ? '+' : ''}{percent.toFixed(2)}%
+          {percent != null ? (percent > 0 ? '+' : '') + percent.toFixed(2) + '%' : '—'}
         </Tag>
       ),
     },
@@ -186,9 +186,9 @@ const StockQuoteTable: React.FC<StockQuoteTableProps> = ({
       width: 80,
       sorter: (a: StockQuote, b: StockQuote) => (a.change ?? 0) - (b.change ?? 0),
       align: 'right',
-      render: (change: number) => (
-        <Text style={{ fontSize: 12, color: changeColor(change) }}>
-          {change > 0 ? '+' : ''}{change.toFixed(2)}
+      render: (change: number | undefined) => (
+        <Text style={{ fontSize: 12, color: changeColor(change ?? 0) }}>
+          {change != null ? (change > 0 ? '+' : '') + change.toFixed(2) : '—'}
         </Text>
       ),
     },
