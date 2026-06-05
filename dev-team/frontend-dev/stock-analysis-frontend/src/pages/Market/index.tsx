@@ -143,9 +143,14 @@ const MarketPage: React.FC = () => {
         const updates = snapshots.map((s) => {
           const partial = snapshotToQuote(s);
           const existing = currentQuotes.find((q) => q.code === partial.code);
+          // 只合并非 undefined 的字段，避免 WebSocket 部分更新覆盖已有数据
+          const cleanPartial: Record<string, any> = {};
+          for (const [k, v] of Object.entries(partial)) {
+            if (v !== undefined) cleanPartial[k] = v;
+          }
           return {
             ...(existing || { volume: 0, amount: 0, turnoverRate: 0, amplitude: 0, trendColor: 'gray' as const }),
-            ...partial,
+            ...cleanPartial,
           } as StockQuote;
         });
         applyQuoteUpdate(updates);

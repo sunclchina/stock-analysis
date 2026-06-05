@@ -2232,7 +2232,8 @@ async def advance_decline():
     """
     涨跌分布统计。
 
-    缓存策略：当日数据首次拉取成功后缓存到 SQLite，后续请求直接读缓存。
+    数据源：新浪财经（akshare stock_zh_a_spot）。
+    缓存策略：当日数据首次拉取成功后缓存到 SQLite，后续请求直接读缓存，TTL 1小时。
     """
     from backend.services.data_cache import generic_cache
     _cache_key = "advance_decline_today"
@@ -2246,99 +2247,12 @@ async def advance_decline():
         except Exception:
             pass
 
-    # 2. 从 API 拉取
-    import httpx
+    # 2. 从新浪拉取（akshare 包装的新浪接口，非东方财富）
     _result = None
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            url = "https://push2.eastmoney.com/api/qt/clist/get"
-            params = {
-                "pn": "1", "pz": "5000", "po": "0", "np": "1",
-                "ut": "bd1d9ddb04089700cf9c27f6f7426281",
-                "fltt": "2", "invt": "2", "fid": "f3",
-                "fs": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2",
-                "fields": "f12,f3",
-            }
-            headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com"}
-            resp = await client.get(url, params=params, headers=headers)
-            data = resp.json()
-            items = (data.get("data", {}) or {}).get("diff", [])
-            if items:
-                up = 0
-                down = 0
-                flat = 0
-                limit_up = 0
-                limit_down = 0
-                for it in items:
-                    chg = it.get("f3")
-                    if chg is None:
-                        continue
-                    try:
-                        chg = float(chg)
-                    except (ValueError, TypeError):
-                        continue
-                    if chg > 0:
-                        up += 1
-                        if chg >= 9.8:
-                            limit_up += 1
-                    elif chg < 0:
-                        down += 1
-                        if chg <= -9.8:
-                            limit_down += 1
-                    else:
-                        flat += 1
-
-                total = up + down + flat
-                # 尝试获取第二页补齐数据
-                params["pn"] = "2"
-                try:
-                    resp2 = await client.get(url, params=params, headers=headers)
-                    data2 = resp2.json()
-                    items2 = (data2.get("data", {}) or {}).get("diff", [])
-                    for it in items2:
-                        chg = it.get("f3")
-                        if chg is None:
-                            continue
-                        try:
-                            chg = float(chg)
-                        except (ValueError, TypeError):
-                            continue
-                        if chg > 0:
-                            up += 1
-                            if chg >= 9.8:
-                                limit_up += 1
-                        elif chg < 0:
-                            down += 1
-                            if chg <= -9.8:
-                                limit_down += 1
-                        else:
-                            flat += 1
-                except Exception:
-                    pass
-
-                _result = {
-                    "up": up,
-                    "down": down,
-                    "flat": flat,
-                    "total": total,
-                    "limit_up": limit_up,
-                    "limit_down": limit_down,
-                }
-                # 写入缓存
-                import json as _json
-                try:
-                    await generic_cache.set(_cache_key, _json.dumps(_result), ttl_seconds=3600)
-                except Exception:
-                    pass
-                return _result
-    except Exception as e:
-        logger.warning(f"涨跌分布-东财失败: {e}")
-
-    # 降级：akshare 实时行情
     try:
         import akshare as _ak
         loop = asyncio.get_event_loop()
-        df = await loop.run_in_executor(None, _ak.stock_zh_a_spot_em)
+        df = await loop.run_in_executor(None, _ak.stock_zh_a_spot)
         if df is not None and not df.empty and "涨跌幅" in df.columns:
             up = int((df["涨跌幅"] > 0).sum())
             down = int((df["涨跌幅"] < 0).sum())
@@ -2346,28 +2260,25 @@ async def advance_decline():
             limit_up = int((df["涨跌幅"] >= 9.8).sum())
             limit_down = int((df["涨跌幅"] <= -9.8).sum())
             total = len(df)
-            logger.info(f"涨跌分布-akshare: 上涨{up} 平盘{flat} 下跌{down} 涨停{limit_up} 跌停{limit_down}")
+            logger.info(f"涨跌分布-新浪: 上涨{up} 平盘{flat} 下跌{down} 涨停{limit_up} 跌停{limit_down} 共{total}只")
             _result = {
                 "up": up, "down": down, "flat": flat, "total": total,
                 "limit_up": limit_up, "limit_down": limit_down,
             }
-            # 写入缓存
             import json as _json
             try:
                 await generic_cache.set(_cache_key, _json.dumps(_result), ttl_seconds=3600)
             except Exception:
                 pass
             return _result
-    except Exception as e2:
-        logger.warning(f"涨跌分布-akshare降级失败: {e2}")
+    except Exception as e:
+        logger.warning(f"涨跌分布-新浪失败: {e}")
 
-    # 写入缓存（空结果也写，TTL短一些避免缓存太久）
     _save = _result or {"up": 0, "down": 0, "flat": 0, "total": 0, "limit_up": 0, "limit_down": 0}
     import json as _json
     try:
-        _ttl = 300 if _result else 120  # 有数据1小时，无数据2分钟
-        await generic_cache.set(_cache_key, _json.dumps(_save), ttl_seconds=_ttl)
-        logger.info(f"涨跌分布缓存写入: {_save['up']}/{_save['flat']}/{_save['down']} TTL={_ttl}s")
+        await generic_cache.set(_cache_key, _json.dumps(_save), ttl_seconds=120)
+        logger.info(f"涨跌分布缓存写入(空): TTL=120s")
     except Exception as e:
         logger.warning(f"涨跌分布缓存写入失败: {e}")
 
