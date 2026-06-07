@@ -142,6 +142,11 @@ class Settings(BaseSettings):
     # 回测默认标的
     default_backtest_stock: str = Field(default="000001", alias="DEFAULT_BACKTEST_STOCK")
 
+    # HTTPS/SSL 证书配置
+    ssl_enabled: bool = Field(default=False, alias="SSL_ENABLED")
+    ssl_cert_file: str = Field(default="", alias="SSL_CERT_FILE")
+    ssl_key_file: str = Field(default="", alias="SSL_KEY_FILE")
+
     # 日志
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 

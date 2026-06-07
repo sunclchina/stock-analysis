@@ -556,10 +556,26 @@ except Exception as e:
 if __name__ == "__main__":
     import uvicorn
 
+    # SSL 证书配置（通过 .env 或系统环境变量）
+    ssl_kwargs = {}
+    if settings.ssl_enabled and settings.ssl_cert_file and settings.ssl_key_file:
+        cert_path = os.path.abspath(settings.ssl_cert_file)
+        key_path = os.path.abspath(settings.ssl_key_file)
+        if os.path.isfile(cert_path) and os.path.isfile(key_path):
+            ssl_kwargs["ssl_certfile"] = cert_path
+            ssl_kwargs["ssl_keyfile"] = key_path
+            logger.info(f"🔒 HTTPS 已启用：{cert_path}")
+        else:
+            logger.warning(f"⚠️ SSL_ENABLED=true 但证书文件不存在")
+            logger.warning(f"   cert: {cert_path}")
+            logger.warning(f"   key:  {key_path}")
+            logger.warning("  回退到 HTTP 模式")
+
     uvicorn.run(
         "backend.main:app",
         host=settings.backend_host,
         port=settings.backend_port,
         reload=settings.backend_reload,
         log_level=settings.log_level.lower(),
+        **ssl_kwargs,
     )

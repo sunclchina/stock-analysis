@@ -218,6 +218,7 @@ AI 驱动的个股深度分析（需配置 DEEPSEEK_API_KEY）。
 | 模板管理 | 管理智能分析报告模板、选股结果模板 |
 | 系统状态 | 后端运行状态、数据库健康检查 |
 | 自定义数据源 | 添加第三方数据源（预留） |
+| HTTPS/SSL | 配置证书文件路径，启用 HTTPS 加密访问（需重启生效） |
 
 ---
 
@@ -325,6 +326,9 @@ npx vite --port 8080 --host
 | 🔴 **必须** | `JWT_SECRET` | JWT 签名密钥 | Token 可被伪造，**安全风险** | `python -c "import secrets; print(secrets.token_hex(32))"` 生成 |
 | 🟡 **推荐** | `DEEPSEEK_API_KEY` | DeepSeek AI 密钥 | AI 智能分析不可用，核心功能不受影响 | [DeepSeek 开放平台](https://platform.deepseek.com/) |
 | 🟡 **推荐** | `DEFAULT_ADMIN_PASSWORD` | 管理员密码 | 默认弱密码，安全风险 | 自行设置 |
+| - | `SSL_ENABLED` | 启用 HTTPS | 关闭时为明文 HTTP 传输 | `true` / `false` |
+| - | `SSL_CERT_FILE` | SSL 证书文件路径 | — | 如 `/app/certs/sunclnas.com.pem` |
+| - | `SSL_KEY_FILE` | SSL 私钥文件路径 | — | 如 `/app/certs/sunclnas.com.key` |
 
 > 编辑项目根目录下的 `.env` 文件完成配置，编辑后重启服务生效。
 
@@ -338,6 +342,9 @@ npx vite --port 8080 --host
 | `TDX_ENABLED` | `false` | 是否启用通达信本地数据源（Docker 环境默认关闭） |
 | `CORS_ORIGINS` | `["http://localhost:8000"]` | 跨域白名单（开发前端 8080 时需改为 8080） |
 | `LOG_LEVEL` | `INFO` | 日志级别（可选 DEBUG/INFO/WARNING/ERROR） |
+| `SSL_ENABLED` | `false` | HTTPS 开关，开启后后端使用 SSL 证书提供加密访问 |
+| `SSL_CERT_FILE` | `` | SSL 证书文件路径（容器内绝对路径，如 `/app/certs/cert.pem`） |
+| `SSL_KEY_FILE` | `` | SSL 私钥文件路径（容器内绝对路径，如 `/app/certs/privkey.key`） |
 
 ---
 
@@ -360,10 +367,11 @@ docker run -d --name stock-analysis \
   -p 8081:8081 \
   -v /path/to/.env:/app/.env \
   -v /path/to/data:/app/data \
+  -v /path/to/certs:/app/certs:ro \
   stock-analysis
 ```
 
-访问 **http://localhost:8081**
+> **HTTPS 配置**：证书文件放入宿主机的 `/path/to/certs/` 目录，然后在 `.env` 中设置 `SSL_ENABLED=true`、`SSL_CERT_FILE=/app/certs/cert.pem`、`SSL_KEY_FILE=/app/certs/privkey.key`，重启容器后通过 **https://localhost:8081** 访问。
 
 > **端口说明**：Docker 版本使用 8081 端口（避开 8080 常见端口冲突）。
 > 开发环境：前端 8080 + 后端 8000 分离运行。
@@ -376,7 +384,9 @@ docker run -d --name stock-analysis \
 
 # 配置文件
 -v /host/path/.env:/app/.env
-```
+
+# SSL 证书（可选，开启 HTTPS 时需要）
+-v /host/certs/path:/app/certs:ro
 
 未挂载数据卷时，数据存储在容器临时文件系统中，容器删除后丢失。
 
@@ -395,7 +405,7 @@ docker run -d --name stock-analysis \
 | 🔔 智能预警 | `/warning` | 七维预警 / 监控面板 / 决策矩阵 |
 | 💼 资产组合 | `/portfolio` | 投资组合管理 |
 | 📝 操盘笔记 | `/notes` | 交易笔记系统 |
-| ⚙️ 系统配置 | `/config` | 个人设置 / 自选股 / 监控 / 数据源 / 模板 |
+| ⚙️ 系统配置 | `/config` | 个人设置 / 自选股 / 监控 / 数据源 / 模板 / HTTPS/SSL |
 | 👥 用户管理 | `/users` | 管理员后台（用户列表/角色管理） |
 
 ---
