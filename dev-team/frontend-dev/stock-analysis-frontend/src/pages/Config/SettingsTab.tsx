@@ -391,7 +391,7 @@ const SettingsTab: React.FC = () => {
                 description={
                   <ul style={{ margin: 0, paddingLeft: 16 }}>
                     <li>支持绝对路径（如 C:\certs\sunclnas.com.pem）或相对于项目根目录的路径</li>
-                    <li>如果使用 ddns-go 自动申请的证书，通常位于 ddns-go 的 cert 目录下</li>
+                    <li>将你的证书文件（.pem /.crt）和密钥文件（.key）放在服务器上，填入完整路径</li>
                     <li>证书格式：PEM（最常见的格式，.pem / .crt / .cert 均可）</li>
                     <li>配置保存后需<Text strong>重启后端服务</Text>才能生效</li>
                   </ul>
