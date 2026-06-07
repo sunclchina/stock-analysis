@@ -11,7 +11,7 @@ services:
     volumes:
       - D:/docker/stock-analysis/data:/app/data
       # SSL 证书挂载：将宿主机证书目录映射到容器内
-      # ddns-go 默认证书目录：C:/ddns-go/cert
+      # 把证书文件（.pem + .key）放到 D:/docker/stock-analysis/certs/ 下即可
       - D:/docker/stock-analysis/certs:/app/certs:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/api/v1/health || exit 1"]

@@ -15,13 +15,22 @@ def _resolve_env_file() -> str:
     """
     Resolve .env 路径。
 
-    原则：.env 唯一且位于项目根目录。
+    原则：.env 唯一且位于项目根目录（仓库根目录或后端项目根目录）。
 
-    查找策略：
-    1. 从 settings.py 逐级向上查找 .env.example（根目录标记文件）
-    2. 如果没找到（如 Docker 场景），回退到 /app/.env
+    查找策略（按优先级）：
+    1. [开发] settings.py 所在项目目录的 .env（backend/config/../../.env）
+    2. 从 settings.py 逐级向上查找 .env.example（根目录标记），返回同目录 .env
+    3. Docker 回退：WORKDIR /app/.env
     """
     start = os.path.dirname(os.path.abspath(__file__))
+
+    # 1) 开发模式：先看后端项目根目录有没有 .env
+    backend_root = os.path.dirname(os.path.dirname(start))
+    dev_env = os.path.join(backend_root, ".env")
+    if os.path.isfile(dev_env):
+        return dev_env
+
+    # 2) 沿目录树向上找 .env.example 标记
     current = start
     for _ in range(10):
         if os.path.exists(os.path.join(current, ".env.example")):
@@ -30,11 +39,9 @@ def _resolve_env_file() -> str:
         if parent == current:
             break
         current = parent
-    # Docker 回退：.env 在 WORKDIR /app 下
-    return os.path.join(os.path.dirname(os.path.dirname(start)), ".env")
 
-
-_ENV_FILE = _resolve_env_file()
+    # 3) Docker 回退：.env 在 WORKDIR /app 下
+    return os.path.join("/app", ".env")
 
 
 def _parse_cors(raw: str) -> List[str]:

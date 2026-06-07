@@ -34,4 +34,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
 
 EXPOSE 8081
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8081"]
+# 通过 python -m 启动，触发 main.py 的 __main__ 块的 SSL 检查逻辑
+# 端口和 SSL 配置从 .env（挂载 /app/.env）或环境变量读取
+CMD ["python", "-m", "backend.main"]
