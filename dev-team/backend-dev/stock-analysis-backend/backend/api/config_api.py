@@ -151,6 +151,10 @@ async def get_all_config(db: AsyncSession = Depends(get_db)):
         "fallback_data_source": settings.fallback_data_source,
         "log_level": settings.log_level,
         "tdx_data_dir": settings.tdx_data_dir,
+        # HTTPS/SSL
+        "ssl_enabled": settings.ssl_enabled,
+        "ssl_cert_file": settings.ssl_cert_file,
+        "ssl_key_file": settings.ssl_key_file,
     }
 
     # 自选股列表
@@ -1359,4 +1363,103 @@ async def import_tdx_watchlist(
         "imported": imported,
         "skipped_duplicates": skipped_duplicates,
         "skipped_invalid": skipped_invalid,
+    }
+
+
+# ─── HTTPS/SSL 配置 ───────────────────────────────────
+
+
+def _get_env_file_path() -> str:
+    """获取 .env 文件路径（复用 settings.py 的查找逻辑）"""
+    start = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    current = start
+    for _ in range(10):
+        if os.path.exists(os.path.join(current, ".env.example")):
+            return os.path.join(current, ".env")
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    return os.path.join(start, ".env")
+
+
+@router.get("/config/ssl")
+async def get_ssl_config():
+    """
+    获取 HTTPS/SSL 配置。
+    返回当前 SSL 设置 + 证书文件状态。
+    """
+    cert_path = os.path.abspath(settings.ssl_cert_file) if settings.ssl_cert_file else ""
+    key_path = os.path.abspath(settings.ssl_key_file) if settings.ssl_key_file else ""
+
+    cert_exists = os.path.isfile(cert_path) if cert_path else False
+    key_exists = os.path.isfile(key_path) if key_path else False
+
+    return {
+        "ssl_enabled": settings.ssl_enabled,
+        "ssl_cert_file": settings.ssl_cert_file,
+        "ssl_key_file": settings.ssl_key_file,
+        "cert_exists": cert_exists,
+        "key_exists": key_exists,
+        "cert_path_abs": cert_path,
+        "key_path_abs": key_path,
+    }
+
+
+@router.put("/config/ssl")
+async def save_ssl_config(data: Dict[str, Any]):
+    """
+    保存 HTTPS/SSL 配置到 .env 文件。
+    修改后需重启服务生效。
+    """
+    env_path = _get_env_file_path()
+    if not os.path.isfile(env_path):
+        raise HTTPException(status_code=500, detail=f".env 文件不存在: {env_path}")
+
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取 .env 失败: {e}")
+
+    # 构建要更新的键值对
+    updates = {}
+    if "ssl_enabled" in data:
+        updates["SSL_ENABLED"] = str(data["ssl_enabled"]).lower()
+    if "ssl_cert_file" in data:
+        updates["SSL_CERT_FILE"] = str(data["ssl_cert_file"])
+    if "ssl_key_file" in data:
+        updates["SSL_KEY_FILE"] = str(data["ssl_key_file"])
+
+    # 更新 .env 文件（保留注释和空行）
+    updated_keys = set()
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in updates:
+                new_lines.append(f"{key}={updates[key]}\n")
+                updated_keys.add(key)
+                continue
+        new_lines.append(line)
+
+    # 追加不存在的键
+    for key, value in updates.items():
+        if key not in updated_keys:
+            new_lines.append(f"{key}={value}\n")
+
+    try:
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"写入 .env 失败: {e}")
+
+    # 推送配置变更通知
+    await _push_config_change("ssl:updated")
+
+    return {
+        "status": "ok",
+        "message": "SSL 配置已保存到 .env 文件，重启后端服务后生效。",
+        "requires_restart": True,
     }

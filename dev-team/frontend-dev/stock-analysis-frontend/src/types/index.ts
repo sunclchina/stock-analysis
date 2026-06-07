@@ -51,7 +51,21 @@ export interface SystemSettings {
   aiApiUrl: string;
   aiTemperature: number;
   aiMaxTokens: number;
+  // HTTPS/SSL
+  sslEnabled?: boolean;
+  sslCertFile?: string;
+  sslKeyFile?: string;
   [key: string]: unknown;
+}
+
+export interface SslConfig {
+  ssl_enabled: boolean;
+  ssl_cert_file: string;
+  ssl_key_file: string;
+  cert_exists: boolean;
+  key_exists: boolean;
+  cert_path_abs: string;
+  key_path_abs: string;
 }
 
 // 自选股

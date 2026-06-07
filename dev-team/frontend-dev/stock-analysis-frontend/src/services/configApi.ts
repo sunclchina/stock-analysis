@@ -2,6 +2,7 @@ import apiClient from './api';
 import type {
   ApiResponse,
   SystemSettings,
+  SslConfig,
   WatchlistItem,
   MonitorItem,
   DataSourceStatus,
@@ -135,4 +136,17 @@ export function saveUserPreferences(prefs: UserPreferences): Promise<ApiResponse
 // ========== 系统状态 ==========
 export function fetchSystemStatus(): Promise<ApiResponse<SystemStatus>> {
   return apiClient.get('/config/system');
+}
+
+// ========== HTTPS/SSL 配置 ==========
+export function fetchSslConfig(): Promise<ApiResponse<SslConfig>> {
+  return apiClient.get('/config/ssl');
+}
+
+export function saveSslConfig(config: {
+  ssl_enabled?: boolean;
+  ssl_cert_file?: string;
+  ssl_key_file?: string;
+}): Promise<ApiResponse<{ status: string; message: string; requires_restart: boolean }>> {
+  return apiClient.put('/config/ssl', config);
 }
