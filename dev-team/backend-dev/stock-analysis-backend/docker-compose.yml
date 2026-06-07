@@ -4,7 +4,7 @@ services:
     container_name: stock-analysis
     restart: always
     ports:
-      - "8081:8000"  # HTTPS 反代或者容器内 SSL 时用
+      - "8081:8081"  # Docker 单端口 8081 部署
     # 环境变量直接挂载本地 .env，前端保存的配置（含 SSL）重启容器即生效
     env_file:
       - ./.env   # 本地 .env → 容器内自动读取
@@ -14,7 +14,7 @@ services:
       # ddns-go 默认证书目录：C:/ddns-go/cert
       - D:/docker/stock-analysis/certs:/app/certs:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/api/v1/health || exit 1"]
       interval: 30s
       timeout: 3s
       start_period: 15s
