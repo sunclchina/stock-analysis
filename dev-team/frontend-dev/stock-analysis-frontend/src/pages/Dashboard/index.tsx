@@ -407,28 +407,31 @@ const DashboardPage: React.FC = () => {
   const colRowMobile = { display: 'flex', flexDirection: 'column' as const, gap: 12 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: isMobile ? 8 : 12 }}>
-      <div className="dashboard-main-row" style={{ display: isMobile ? 'flex' : 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 8 : 12, flex: 1, minHeight: 0 }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 12, overflow: 'auto', minWidth: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 12, flex: 1 }}>
+      {isMobile ? (
+        /* 移动端：全部纵向堆叠，不分主栏/侧栏 */
+        <>
           <AStockOverviewCard data={aStockOverview} />
-          <div className="dashboard-col-row" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 8 : 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <DecisionBoard />
+          <DecisionBoard />
+          <SidePanel resources={systemStatus} quotes={marketQuotes} watchlistQuotes={watchlistQuotes} portfolioSummary={portfolioSummary} />
+        </>
+      ) : (
+        /* 桌面端：主栏+侧栏 */
+        <>
+          <div className="dashboard-main-row" style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto', minWidth: 0 }}>
+              <AStockOverviewCard data={aStockOverview} />
+              <div className="dashboard-col-row" style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <DecisionBoard />
+                </div>
+              </div>
+            </div>
+            <div className="dashboard-sidepanel" style={{ width: 280, flexShrink: 0 }}>
+              <SidePanel resources={systemStatus} quotes={marketQuotes} watchlistQuotes={watchlistQuotes} portfolioSummary={portfolioSummary} />
             </div>
           </div>
-        </div>
-        {/* 桌面端显示侧栏，移动端折叠到底部 */}
-        {!isMobile && (
-          <div className="dashboard-sidepanel" style={{ width: 280, flexShrink: 0 }}>
-            <SidePanel resources={systemStatus} quotes={marketQuotes} watchlistQuotes={watchlistQuotes} portfolioSummary={portfolioSummary} />
-          </div>
-        )}
-      </div>
-      {/* 移动端：侧栏内容折叠到下方，通过手风琴方式展示 */}
-      {isMobile && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SidePanel resources={systemStatus} quotes={marketQuotes} watchlistQuotes={watchlistQuotes} portfolioSummary={portfolioSummary} />
-        </div>
+        </>
       )}
     </div>
   );
