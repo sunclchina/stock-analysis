@@ -29,16 +29,13 @@ body {
 .ant-layout {
   background: var(--content-bg) !important;
 }
-
 .ant-layout-sider {
   background: var(--sidebar-bg) !important;
 }
-
 .ant-layout-content {
   flex: 1 1 auto !important;
   overflow: auto !important;
 }
-
 .ant-menu-dark {
   background: transparent !important;
 }
@@ -54,7 +51,6 @@ body {
   box-shadow: var(--card-shadow) !important;
   transition: box-shadow 0.2s ease, transform 0.2s ease !important;
 }
-
 .ant-card:hover {
   box-shadow: var(--card-shadow-hover) !important;
 }
@@ -63,12 +59,8 @@ body {
 .btn-hover-scale {
   transition: all 0.2s ease;
 }
-.btn-hover-scale:hover {
-  transform: scale(1.02);
-}
-.btn-hover-scale:active {
-  transform: scale(0.98);
-}
+.btn-hover-scale:hover { transform: scale(1.02); }
+.btn-hover-scale:active { transform: scale(0.98); }
 
 /* Page transition */
 .page-enter {
@@ -82,211 +74,103 @@ body {
 }
 
 /* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
-}
-
-html.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-}
-html.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+html.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
+html.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 
 /* ============================
-   移动端适配（Mobile Responsive）
+   移动端适配
    ============================ */
 
-/* 手机侧栏遮罩 */
-.mobile-sidebar-overlay {
-  display: none;
-}
+.mobile-sidebar-overlay { display: none; }
+.mobile-menu-btn { display: none !important; }
 
-/* 手机汉堡菜单按钮 */
-.mobile-menu-btn {
-  display: none !important;
-}
-
+/* 手机端 (<768px) */
 @media (max-width: 768px) {
-  .mobile-menu-btn {
-    display: inline-flex !important;
-  }
+  .mobile-menu-btn { display: inline-flex !important; }
+  .desktop-sidebar { display: none !important; }
 
-  /* 桌面侧栏在手机上隐藏，由 Drawer 替代 */
-  .desktop-sidebar {
-    display: none !important;
-  }
-
-  /* 手机侧栏遮罩 */
   .mobile-sidebar-overlay {
     display: block;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.45);
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45);
     z-index: 999;
   }
 
-  /* 内容区域手机边距 */
-  .ant-layout-content {
-    padding: 12px !important;
-  }
+  .ant-layout-content { padding: 12px !important; }
 
-  /* 页眉手机适配 */
-  .header-bar {
-    padding: 0 12px !important;
-  }
-  .header-bar h1 {
-    font-size: 16px !important;
-  }
+  .header-bar { padding: 0 12px !important; }
+  .header-bar h1 { font-size: 16px !important; }
   .header-bar .breadcrumb-text,
   .header-bar .time-display,
   .header-bar .session-tag,
-  .header-bar .countdown-text {
-    display: none !important;
-  }
+  .header-bar .countdown-text,
   .header-bar .user-name {
     display: none !important;
   }
 
-  /* 卡片适配 */
-  .ant-card-body {
-    padding: 12px !important;
-  }
+  .ant-card-body { padding: 12px !important; }
 
-  /* 表格水平滚动 */
   .responsive-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  .responsive-table-wrap .ant-table {
-    min-width: 600px;
-  }
+  .responsive-table-wrap .ant-table { min-width: 600px; }
 
-  /* 手机端标签页 */
-  .ant-tabs-nav {
-    padding: 0 4px !important;
-  }
-  .ant-tabs-tab {
-    padding: 8px 10px !important;
-    font-size: 13px !important;
-  }
+  .ant-tabs-nav { padding: 0 4px !important; }
+  .ant-tabs-tab { padding: 8px 10px !important; font-size: 13px !important; }
 
-  /* 手机端统计卡片网格：2列 */
-  .mobile-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
+  .mobile-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mobile-grid-1 { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .mobile-flex-col { flex-direction: column !important; }
+  .mobile-hidden { display: none !important; }
 
-  /* 手机端统计卡片网格：1列 */
-  .mobile-grid-1 {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
+  .dashboard-status-bar { flex-wrap: wrap !important; gap: 4px !important; }
+  .dashboard-status-bar > * { flex: 1 1 45% !important; min-width: 0 !important; }
 
-  /* 手机端 flex 行改为列 */
-  .mobile-flex-col {
-    flex-direction: column !important;
-  }
+  .decision-board-grid { grid-template-columns: 1fr !important; }
+  .selection-stat-cards { grid-template-columns: 1fr 1fr !important; }
 
-  /* 手机端隐藏元素 */
-  .mobile-hidden {
-    display: none !important;
-  }
+  .ant-drawer-content-wrapper { width: 100% !important; max-width: 100vw !important; }
 
-  /* 状态栏手机压缩 */
-  .dashboard-status-bar {
-    flex-wrap: wrap !important;
-    gap: 4px !important;
-  }
-  .dashboard-status-bar > * {
-    flex: 1 1 45% !important;
-    min-width: 0 !important;
-  }
+  .ant-modal { max-width: 95vw !important; margin: 10px auto !important; }
+  .ant-modal-content { padding: 16px !important; }
 
-  /* 决策板手机适配 */
-  .decision-board-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* 选股页面手机适配 */
-  .selection-stat-cards {
-    grid-template-columns: 1fr 1fr !important;
-  }
-
-  /* 详情抽屉手机适配 */
-  .ant-drawer-content-wrapper {
-    width: 100% !important;
-    max-width: 100vw !important;
-  }
-
-  /* 模态框手机适配 */
-  .ant-modal {
-    max-width: 95vw !important;
-    margin: 10px auto !important;
-  }
-  .ant-modal-content {
-    padding: 16px !important;
-  }
-
-  /* 按钮组手机适配 */
-  .mobile-btn-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
+  .mobile-btn-group { display: flex; flex-wrap: wrap; gap: 6px; }
   .mobile-btn-group .ant-btn {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-size: 12px !important;
-    padding: 4px 8px !important;
+    flex: 1 1 auto; min-width: 0;
+    font-size: 12px !important; padding: 4px 8px !important;
   }
 
-  /* 行内元素手机适配 */
-  .ant-space {
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-  }
+  .ant-space { flex-wrap: wrap !important; gap: 6px !important; }
+  .ant-form-item { margin-bottom: 12px !important; }
 
-  /* 表单手机适配 */
-  .ant-form-item {
-    margin-bottom: 12px !important;
-  }
+  .footer-copyright { font-size: 11px !important; padding: 8px 12px !important; }
 
-  /* 页脚手机隐藏版权细节 */
-  .footer-copyright {
-    font-size: 11px !important;
-    padding: 8px 12px !important;
-  }
+  .config-table-wrap { overflow-x: auto; }
+  .config-table-wrap .ant-table { min-width: 600px; }
 }
 
-/* 平板适配（768px-1024px） */
+/* 中等屏幕 (<1024px)：隐藏倒计时、面包屑等非关键信息 */
 @media (max-width: 1024px) {
-  :root {
-    --sidebar-width-expanded: 200px;
-  }
+  .header-countdown { display: none !important; }
+  .header-breadcrumb { display: none !important; }
+  :root { --sidebar-width-expanded: 200px; }
+}
+
+/* 紧凑屏幕 (<900px)：隐藏时间戳和交易状态标签 */
+@media (max-width: 900px) {
+  .header-timestamp { display: none !important; }
+  .header-session-tag { display: none !important; }
 }
 
 /* 仪表盘右侧辅助区响应式 */
 @media (max-width: 1200px) {
-  .dashboard-side-panel {
-    display: none !important;
-  }
+  .dashboard-side-panel { display: none !important; }
 }
 
 /* Placeholder page styles */
@@ -300,15 +184,8 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   opacity: 0.5;
   font-size: 18px;
 }
-
 .page-placeholder .icon {
   font-size: 64px;
   margin-bottom: 16px;
   opacity: 0.3;
-}
-
-/* 手机适配：设置页表格水平滚动 */
-@media (max-width: 768px) {
-  .config-table-wrap { overflow-x: auto; }
-  .config-table-wrap .ant-table { min-width: 600px; }
 }
