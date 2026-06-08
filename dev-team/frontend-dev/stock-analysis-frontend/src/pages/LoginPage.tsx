@@ -65,11 +65,12 @@ const LoginPage: React.FC = () => {
     }}>
       <Card
         style={{
-          width: 400,
+          width: '90%',
+          maxWidth: 400,
           borderRadius: 12,
           boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
         }}
-        styles={{ body: { padding: '40px 36px' } }}
+        styles={{ body: { padding: window.innerWidth < 480 ? '28px 20px' : '40px 36px' } }}
       >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <FundOutlined style={{ fontSize: 48, color: '#165DFF', marginBottom: 12 }} />
