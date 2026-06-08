@@ -2,7 +2,7 @@
  * M05 智能分析页面
  * 三标签页：大盘复盘 + 个股分析 + 批量分析
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { Tabs } from 'antd';
 import { BarChartOutlined, StockOutlined, ClusterOutlined } from '@ant-design/icons';
@@ -14,18 +14,27 @@ import ReportList from './ReportList';
 const AnalysisPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('review');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   return (
     <div>
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
+        type="card"
+        size={isMobile ? 'small' : 'middle'}
+        style={{ background: 'var(--content-card-bg)', borderRadius: 8, padding: isMobile ? '4px' : '0 16px' }}
         items={[
           {
             key: 'review',
             label: (
               <span>
-                <BarChartOutlined style={{ marginRight: 6 }} />
+                {isMobile ? '' : <BarChartOutlined style={{ marginRight: 6 }} />}
                 大盘复盘
               </span>
             ),
@@ -35,7 +44,7 @@ const AnalysisPage: React.FC = () => {
             key: 'stock',
             label: (
               <span>
-                <StockOutlined style={{ marginRight: 6 }} />
+                {isMobile ? '' : <StockOutlined style={{ marginRight: 6 }} />}
                 个股分析
               </span>
             ),
@@ -45,14 +54,13 @@ const AnalysisPage: React.FC = () => {
             key: 'batch',
             label: (
               <span>
-                <ClusterOutlined style={{ marginRight: 6 }} />
+                {isMobile ? '' : <ClusterOutlined style={{ marginRight: 6 }} />}
                 批量分析
               </span>
             ),
             children: <BatchAnalysisTab onReportGenerated={() => setRefreshKey(k => k + 1)} />,
           },
         ]}
-        style={{ background: 'var(--content-card-bg)', borderRadius: 8, padding: '0 16px' }}
       />
 
       {/* 报告列表 */}

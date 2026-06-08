@@ -98,11 +98,13 @@ const ConfigPage: React.FC = () => {
 
   return (
     <ErrorBoundary title="系统配置异常" description="配置模块发生异常，请重试。">
-      <div style={{ padding: 'max(12px, min(24px, 3vw))' }}>
+      <div style={{ padding: 'max(8px, min(24px, 2vw))' }}>
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
           tabPosition={tabPosition}
+          type={tabPosition === 'top' ? 'card' : undefined}
+          size={tabPosition === 'top' ? 'small' : 'middle'}
           items={tabItems}
           style={{ minHeight: 500 }}
         />

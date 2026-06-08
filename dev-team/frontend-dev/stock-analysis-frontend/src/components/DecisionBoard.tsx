@@ -134,7 +134,7 @@ const DecisionBoard: React.FC = () => {
   return (
     <Card
       size="small"
-      style={{ borderRadius: 8, marginTop: 12 }}
+      style={{ borderRadius: 8, marginTop: 12, width: '100%' }}
       title={
         <Space>
           <DashboardOutlined style={{ color: '#722ed1', fontSize: 16 }} />
