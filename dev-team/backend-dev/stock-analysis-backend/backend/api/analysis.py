@@ -268,10 +268,10 @@ def _save_report(report_data: Dict[str, Any], user_id: int = 0) -> Optional[str]
 @router.post("/review")
 async def api_post_review(
     body: Dict[str, Any] = Body(...,
-        example={
+        examples={"default": {"value": {
             "date": "2026-04-29",
             "watch_stocks": ["000001", "600519", "000858"],
-        }
+        }}},
     ),
     request: Request = None,
 ):
@@ -324,9 +324,9 @@ async def api_post_review(
 @router.post("/stock")
 async def api_stock_analysis(
     body: Dict[str, Any] = Body(...,
-        example={
+        examples={"default": {"value": {
             "code": "000001",
-        }
+        }}},
     ),
     request: Request = None,
 ):
@@ -378,9 +378,9 @@ async def api_stock_analysis(
 @router.post("/batch")
 async def api_batch_analysis(
     body: Dict[str, Any] = Body(...,
-        example={
+        examples={"default": {"value": {
             "codes": ["600519", "000858", "600036"],
-        }
+        }}},
     ),
 ):
     """

@@ -169,7 +169,7 @@ async def list_accounts(
 @router.post("/accounts")
 async def create_account(
     request: Request,
-    body: dict = Body(..., example={"name": "短线账户", "initial_capital": 1000000}),
+    body: dict = Body(..., examples={"default": {"value": {"name": "短线账户", "initial_capital": 1000000}}}),
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(_get_current_user),
 ):

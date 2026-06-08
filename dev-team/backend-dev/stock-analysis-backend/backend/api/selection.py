@@ -695,7 +695,7 @@ async def f_get(
 
 
 @router.post("/fixed")
-async def f(body: Dict[str,Any]=Body(..., example={"template_id":"steady_trend"})):
+async def f(body: Dict[str,Any]=Body(..., examples={"default": {"value": {"template_id": "steady_trend"}}})):
     tid = body.get("template_id") or body.get("strategy","steady_trend")
     mr = body.get("max_results") or body.get("limit")
     mr = None if mr is None else max(1,min(100,int(mr)))
@@ -760,10 +760,10 @@ async def _run_fixed_selection(tid: str, max_results: Optional[int] = None):
 
 
 @router.post("/custom")
-async def c(body: Dict[str,Any]=Body(..., example={
+async def c(body: Dict[str,Any]=Body(..., examples={"default": {"value": {
     "dimensions": {"scope": {}, "technical": {"ma_type": "bullish"}},
     "max_results": 100
-})):
+}}})):
     ss = await load()
     if not ss:
         return {"items":[],"count":0,"message":"暂无股票", "step_counts":{}}
@@ -873,10 +873,10 @@ async def industries():
 
 
 @router.post("/submit")
-async def submit_selection_task(body: dict = Body(..., example={
+async def submit_selection_task(body: dict = Body(..., examples={"default": {"value": {
     "strategy": "steady_trend",
     "max_results": 20,
-})):
+}}})):
     """异步提交选股任务"""
     strategy = body.get("strategy", body.get("strategy_id", "steady_trend"))
     max_results = body.get("max_results", 20)
