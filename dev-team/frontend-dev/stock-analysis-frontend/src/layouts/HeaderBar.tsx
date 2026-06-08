@@ -182,7 +182,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme, onMobil
         {/* 桌面端显示面包屑 */}
         {!isMobile && pageInfo.breadcrumb && (
           <span
-            className="breadcrumb-text"
+            className="header-breadcrumb"
             style={{
               fontSize: 14, color: 'rgba(255,255,255,0.65)',
               marginLeft: 8, paddingLeft: 12,
@@ -194,7 +194,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme, onMobil
         )}
         {/* 时间（桌面端显示） */}
         {!isMobile && (
-          <span style={{
+          <span className="header-timestamp" style={{
             marginLeft: 16, paddingLeft: 16,
             borderLeft: '1px solid rgba(255,255,255,0.15)',
             fontSize: 13, color: 'rgba(255,255,255,0.65)',
@@ -204,13 +204,13 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme, onMobil
           </span>
         )}
         {!isMobile && (
-          <Tag color={session.includes('非交易日') || session.includes('盘前') || session.includes('午休') ? 'default' : 'green'}
+          <Tag className="header-session-tag" color={session.includes('非交易日') || session.includes('盘前') || session.includes('午休') ? 'default' : 'green'}
             style={{ fontSize: 11, margin: 0 }}>
             {session || '非交易时段'}
           </Tag>
         )}
         {!isMobile && countdown && (
-          <Text style={{ fontSize: 11, color: '#FFD700', whiteSpace: 'nowrap' }}>{countdown}</Text>
+          <Text className="header-countdown" style={{ fontSize: 11, color: '#FFD700', whiteSpace: 'nowrap' }}>{countdown}</Text>
         )}
       </div>
 
