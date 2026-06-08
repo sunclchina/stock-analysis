@@ -71,6 +71,9 @@ def _parse_cors(raw: str) -> List[str]:
     return [v]
 
 
+_ENV_FILE = _resolve_env_file()
+
+
 class Settings(BaseSettings):
     """应用配置，从环境变量加载"""
 
