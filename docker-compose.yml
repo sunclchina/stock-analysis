@@ -1,17 +1,19 @@
 services:
   stock-analysis:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: stock-analysis:latest
     container_name: stock-analysis
     restart: always
     ports:
-      - "8081:8081"  # Docker 单端口 8081 部署
-    # 环境变量直接挂载本地 .env，前端保存的配置（含 SSL）重启容器即生效
+      - "8081:8081"
+    # 生产配置路径，按需修改
     env_file:
-      - ./.env   # 本地 .env → 容器内自动读取
+      - D:/docker/stock-analysis/.env
     volumes:
       - D:/docker/stock-analysis/data:/app/data
-      # SSL 证书挂载：将宿主机证书目录映射到容器内
-      # 把证书文件（.pem + .key）放到 D:/docker/stock-analysis/certs/ 下即可
+      # SSL 证书（可选），把 .pem/.key 放到 D:/docker/stock-analysis/certs/
       - D:/docker/stock-analysis/certs:/app/certs:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/api/v1/health || exit 1"]
