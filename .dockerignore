@@ -9,6 +9,46 @@ __pycache__
 logs/
 data/
 *.tar
+*.tar.gz
+*.zip
 
 .vite/
 *.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Backend dev files
+dev-team/backend-dev/stock-analysis-backend/.venv/
+dev-team/backend-dev/stock-analysis-backend/__pycache__/
+dev-team/backend-dev/stock-analysis-backend/*.db
+dev-team/backend-dev/stock-analysis-backend/*.log
+dev-team/backend-dev/stock-analysis-backend/logs/
+dev-team/backend-dev/stock-analysis-backend/data/cache/
+dev-team/backend-dev/stock-analysis-backend/data/reports/
+dev-team/backend-dev/stock-analysis-backend/data/kline_cache/
+dev-team/backend-dev/stock-analysis-backend/data/a_share_cache/
+dev-team/backend-dev/stock-analysis-backend/data/monitor_cache/
+dev-team/backend-dev/stock-analysis-backend/data/premarket_cache/
+dev-team/backend-dev/stock-analysis-backend/data/event_cache/
+dev-team/backend-dev/stock-analysis-backend/data/templates/
+dev-team/backend-dev/stock-analysis-backend/.pytest_cache/
+
+# Frontend dev files
+dev-team/frontend-dev/stock-analysis-frontend/node_modules/
+dev-team/frontend-dev/stock-analysis-frontend/dist/
+dev-team/frontend-dev/stock-analysis-frontend/logs/
