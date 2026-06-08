@@ -1,17 +1,37 @@
-.git
-.gitignore
-__pycache__
-*.pyc
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & data
 logs/
 data/cache/
 data/reports/
-node_modules/
-test_*.py
-_test_*.py
-.venv/
+*.db
+*.db-journal
+*.db-wal
 
-# ---- 避免将本地配置和密钥打入镜像 ----
-.env
-.env.*
-*.tar
+# Docker
 docker_build*.log
+stock-analysis-docker.tar
+
+# Frontend build (not in source tree - only backend/static/ is used)
+node_modules/
+frontend/
+stock-analysis-frontend/
