@@ -1,8 +1,9 @@
-﻿/**
- * 缁熶竴项电湁缁勪件堣璁¤范?v1.1 搂2?
- * - 固定鏄剧ず鍦ㄥ彸渚т富鍐呭鍖洪《閮?
- * - 宸︿晶氶〉非㈡额?+ 非㈠寘灞戝鑸?
- * - 取充晶氭墜鍔ㄥ埛鏂?/ 一婚分标崲 / 选氱煡 / 用户澶村儚
+/**
+ * 统一页眉组件（设计规范 v1.1 §2）
+ * - 固定显示在右侧主内容区顶部
+ * - 左侧：页面标题 + 面包屑导航
+ * - 右侧：手动刷新 / 主题切换 / 通知 / 用户头像
+ * - 移动端：汉堡菜单按钮 + 简化显示
  */
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -15,6 +16,7 @@ import {
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
 import { useConfigStore } from '../store/configStore';
 import { getCurrentUser, logout, isLoggedIn } from '../services/auth';
@@ -35,39 +37,55 @@ interface HeaderBarProps {
   themeMode: 'light' | 'dark';
   onToggleTheme: () => void;
   onRefresh?: () => void;
+  /** 移动端汉堡菜单回调 */
+  onMobileMenuClick?: () => void;
 }
 
-/** 项甸面标题映射 */
+/** 页面标题映射 */
 const pageTitles: Record<string, { title: string; breadcrumb?: string }> = {
   "/": { title: "仪表盘" },
   "/market": { title: "实时行情" },
-  "/selection": { title: "智能选股", breadcrumb: "固定规则选股 / 自定义选股" },
-  "/analysis": { title: "智能分析", breadcrumb: "大盘复盘 / 个股分析 / 批量分析" },
+  "/market-ext": { title: "全球指数/行业" },
+  "/market-research": { title: "研报/公告/行业" },
+  "/selection": { title: "智能选股" },
+  "/analysis": { title: "智能分析" },
   "/warning": { title: "智能预警" },
-  "/config": { title: "系统配置", breadcrumb: "设置 / 自选股 / 监控池 / 数据源 / 模板 / 偏好 / 状态" },
+  "/portfolio": { title: "资产组合" },
+  "/notes": { title: "操盘笔记" },
+  "/config": { title: "系统配置" },
   "/users": { title: "用户管理" },
-  "/password-change": { title: "修改密码" },
+  "/login": { title: "登录" },
+  "/password": { title: "修改密码" },
 };
 
-const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
+const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme, onMobileMenuClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { sidebarCollapsed, toggleSidebar } = useConfigStore();
   const pageInfo = pageTitles[location.pathname] || { title: '' };
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const pad = (n: number) => String(n).padStart(2, '0');
   const d = new Date();
-  const [timeStr, setTimeStr] = useState(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`);
+  const [timeStr, setTimeStr] = useState(
+    `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
   const [session, setSession] = useState(d.getDay() === 0 || d.getDay() === 6 ? '非交易日' : '');
   const [countdown, setCountdown] = useState('');
 
   useEffect(() => {
-    // 姣忕鏇存柊鏃堕棿
     const tick = setInterval(() => {
       const n = new Date();
       setTimeStr(`${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())} ${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`);
     }, 1000);
-    // K线数据加载
-  const refresh = setInterval(() => {
+
+    const refresh = setInterval(() => {
       fetch('/api/v1/market/is-trading-day').then(r=>r.json()).then(d => {
         if(d.session) setSession(d.session);
         if(d.next_open_timestamp) {
@@ -77,7 +95,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
         }
       }).catch(()=>{});
     }, 30000);
-    // 棣栨鍔犺浇
+
     fetch('/api/v1/market/is-trading-day').then(r=>r.json()).then(d => {
       if(d.session) setSession(d.session);
       if(d.next_open_timestamp) {
@@ -86,10 +104,10 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
         setCountdown(diff > 0 ? formatCountdown(diff) : '');
       }
     }).catch(()=>{});
+
     return () => { clearInterval(tick); clearInterval(refresh); };
   }, []);
 
-  // K线数据加载
   useEffect(() => {
     const calc = setInterval(() => {
       if (!_nextOpenTs) { setCountdown(''); return; }
@@ -100,7 +118,6 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
     return () => clearInterval(calc);
   }, []);
 
-  // 用户保℃伅
   const user = getCurrentUser();
   const loggedIn = isLoggedIn();
 
@@ -110,11 +127,9 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
     { key: 'logout', label: '退出登录', danger: true, onClick: () => logout() },
   ];
 
-  // 模拟通知数据
-  const hasNotification = false;
-
   return (
     <header
+      className="header-bar"
       style={{
         height: 'var(--header-height)',
         background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
@@ -122,17 +137,26 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 24px',
+        padding: isMobile ? '0 8px' : '0 24px',
         position: 'sticky',
         top: 0,
         zIndex: 50,
         transition: 'background 0.3s',
       }}
     >
-      {/* 宸︿晶氭姌取犳寜閽?+ 项甸面标题 + 鏃堕棿保℃伅 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {sidebarCollapsed && (
-          <Tooltip title="灞曞紑渚ф爮">
+      {/* 左侧：移动端汉堡菜单 + 标题 + 时间/状态 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 12, overflow: 'hidden' }}>
+        {/* 移动端汉堡菜单（始终显示） */}
+        <Button
+          type="text"
+          icon={<MenuOutlined />}
+          onClick={onMobileMenuClick}
+          className="mobile-menu-btn"
+          style={{ color: '#ffffff', fontSize: 20 }}
+        />
+
+        {!isMobile && sidebarCollapsed && (
+          <Tooltip title="展开侧栏">
             <Button
               type="text"
               icon={<MenuUnfoldOutlined />}
@@ -144,95 +168,90 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
         <h1
           style={{
             margin: 0,
-            fontSize: 18,
+            fontSize: isMobile ? 16 : 18,
             fontWeight: 700,
             color: '#ffffff',
             whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: isMobile ? 120 : undefined,
           }}
         >
           {pageInfo.title}
         </h1>
-        {pageInfo.breadcrumb && (
+        {/* 桌面端显示面包屑 */}
+        {!isMobile && pageInfo.breadcrumb && (
           <span
+            className="breadcrumb-text"
             style={{
-              fontSize: 14,
-              color: 'rgba(255,255,255,0.65)',
-              marginLeft: 8,
-              paddingLeft: 12,
+              fontSize: 14, color: 'rgba(255,255,255,0.65)',
+              marginLeft: 8, paddingLeft: 12,
               borderLeft: '1px solid rgba(255,255,255,0.15)',
             }}
           >
             {pageInfo.breadcrumb}
           </span>
         )}
-        {/* 鏃堕棿/交易鏃?值掕鏃?*/}
-        <span style={{
-          marginLeft: 16, paddingLeft: 16, borderLeft: '1px solid rgba(255,255,255,0.15)',
-          fontSize: 13, color: 'rgba(255,255,255,0.65)', fontFamily: 'monospace', whiteSpace: 'nowrap',
-        }}>
-          {timeStr}
-        </span>
-        <Tag color={session.includes('非交易日') || session.includes('盘前') || session.includes('午休') ? 'default' : 'green'} style={{ fontSize: 11, margin: 0 }}>
-          {session || '非交易时段'}
-        </Tag>
-        {countdown && <Text style={{ fontSize: 11, color: '#FFD700' }}>{countdown}</Text>}
+        {/* 时间（桌面端显示） */}
+        {!isMobile && (
+          <span style={{
+            marginLeft: 16, paddingLeft: 16,
+            borderLeft: '1px solid rgba(255,255,255,0.15)',
+            fontSize: 13, color: 'rgba(255,255,255,0.65)',
+            fontFamily: 'monospace', whiteSpace: 'nowrap',
+          }}>
+            {timeStr}
+          </span>
+        )}
+        {!isMobile && (
+          <Tag color={session.includes('非交易日') || session.includes('盘前') || session.includes('午休') ? 'default' : 'green'}
+            style={{ fontSize: 11, margin: 0 }}>
+            {session || '非交易时段'}
+          </Tag>
+        )}
+        {!isMobile && countdown && (
+          <Text style={{ fontSize: 11, color: '#FFD700', whiteSpace: 'nowrap' }}>{countdown}</Text>
+        )}
       </div>
 
-      {/* 取充晶氭搷位滃尯 */}
-      <Space size={16} align="center">
-        <Tooltip title="鎵姩分锋柊">
-          <Button
-            type="text"
-            icon={<ReloadOutlined />}
-            onClick={() => window.location.reload()}
-            style={{
-              color: '#ffffff',
-              fontSize: 18,
-              transition: 'color 0.2s',
-            }}
-            className="header-icon-btn"
-          />
-        </Tooltip>
+      {/* 右侧操作区 */}
+      <Space size={isMobile ? 8 : 16} align="center">
+        {!isMobile && (
+          <Tooltip title="手动刷新">
+            <Button
+              type="text"
+              icon={<ReloadOutlined />}
+              onClick={() => window.location.reload()}
+              style={{ color: '#ffffff', fontSize: 18 }}
+              className="header-icon-btn"
+            />
+          </Tooltip>
+        )}
 
-        <Tooltip title={themeMode === 'dark' ? '分标崲流呰壊妯″紡' : '分标崲娣辫壊妯″紡'}>
+        <Tooltip title={themeMode === 'dark' ? '切换浅色模式' : '切换深色模式'}>
           <Button
             type="text"
-            icon={
-              themeMode === 'dark' ? (
-                <SunOutlined style={{ color: 'var(--theme-toggle-color)' }} />
-              ) : (
-                <MoonOutlined />
-              )
-            }
+            icon={themeMode === 'dark' ? <SunOutlined style={{ color: 'var(--theme-toggle-color)' }} /> : <MoonOutlined />}
             onClick={onToggleTheme}
-            style={{
-              color: '#ffffff',
-              fontSize: 18,
-              transition: 'color 0.2s',
-            }}
+            style={{ color: '#ffffff', fontSize: isMobile ? 16 : 18 }}
             className="header-icon-btn"
           />
         </Tooltip>
 
-        {(userMenuItems.length > 0) && (
+        {loggedIn && (
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
             <Button type="text"
               style={{
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                fontSize: 14,
+                color: '#ffffff', display: 'flex', alignItems: 'center',
+                gap: 4, fontSize: isMobile ? 13 : 14,
               }}
               className="header-icon-btn"
             >
               <UserOutlined />
-              {user?.nickname || user?.username || '未登录'}
+              {!isMobile && (user?.nickname || user?.username || '未登录')}
             </Button>
           </Dropdown>
         )}
-
-
       </Space>
 
       <style>{`
@@ -249,5 +268,3 @@ const HeaderBar: React.FC<HeaderBarProps> = ({ themeMode, onToggleTheme }) => {
 };
 
 export default HeaderBar;
-
-
