@@ -1579,7 +1579,8 @@ async def is_trading_day():
 
     # 计算下次开盘时间戳（毫秒）
     next_open_ts = None
-    
+    trade_dates_list = []
+
     if trade_dates_list:
         trade_dates_list.sort()
         for td in trade_dates_list:
