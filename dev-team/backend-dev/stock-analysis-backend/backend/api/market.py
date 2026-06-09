@@ -1579,22 +1579,6 @@ async def is_trading_day():
 
     # 计算下次开盘时间戳（毫秒）
     next_open_ts = None
-    trade_dates_list = []
-    try:
-        import httpx
-        _cal_url = f"https://tool.finance.sina.com.cn/tprice/api/tprice.php?callback=json&date={now.year}"
-        async with httpx.AsyncClient(timeout=10) as _c:
-            _r = await _c.get(_cal_url, headers={"User-Agent": "Mozilla/5.0"})
-            import re
-            _m = re.search(r'json\((.+)\)', _r.text)
-            if _m:
-                import json as _jmod
-                _cal_data = _jmod.loads(_m.group(1))
-                _date_str = _cal_data.get("data", {}).get("date", "")
-                if _date_str:
-                    trade_dates_list = _date_str.split(",")
-    except Exception as e:
-        logger.warning(f"交易日历HTTP获取失败: {e}")
     
     if trade_dates_list:
         trade_dates_list.sort()
