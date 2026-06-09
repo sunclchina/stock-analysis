@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Card, Table, Tag, Typography, Space, Tabs, Input, Button, message, Popover, Modal, Tooltip, Empty, Row, Col } from 'antd';
 import { Spin } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, FileTextOutlined, LinkOutlined, AimOutlined, WarningOutlined, AlertOutlined, EyeOutlined, FileAddOutlined } from '@ant-design/icons';
+import { ArrowUpOutlined, ArrowDownOutlined, FileTextOutlined, LinkOutlined, AimOutlined, WarningOutlined, AlertOutlined, EyeOutlined, FileAddOutlined, MinusOutlined } from '@ant-design/icons';
 import * as echarts from 'echarts';
 import apiClient from '../../services/api';
 import {
@@ -13,6 +13,7 @@ import {
   fetchResearchReportDetail,
   fetchKLineMini,
 } from '../../services/marketResearchApi';
+import { GlobalIndices, IndustryRanking, StockMoneyFlow } from '../MarketExt';
 
 const { Text, Title } = Typography;
 
@@ -792,6 +793,9 @@ const RiskMonitorTab: React.FC = () => {
 const MarketResearchPage: React.FC = () => {
   const [tab, setTab] = useState('research');
   const items = [
+    { key: 'indices', label: '全球指数', children: <GlobalIndices /> },
+    { key: 'industry', label: '行业排名', children: <IndustryRanking /> },
+    { key: 'moneyflow', label: '个股资金流向', children: <StockMoneyFlow /> },
     { key: 'research', label: '个股研报', children: <StockResearchReportTab /> },
     { key: 'notice', label: '公司公告', children: <StockNoticeTab /> },
     { key: 'industry_research', label: '行业研究', children: <IndustryResearchTab /> },

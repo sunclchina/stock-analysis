@@ -57,7 +57,6 @@ const navItems: NavItemDef[] = [
     key: 'market', label: '实时行情', path: '/market', icon: <StockOutlined />,
     children: [
       { key: 'market-overview', label: '行情概览', path: '/market' },
-      { key: 'market-ext', label: '全球指数/行业', path: '/market-ext' },
     ],
   },
   { key: 'selection', label: '智能选股', path: '/selection', icon: <FundProjectionScreenOutlined /> },
@@ -65,6 +64,7 @@ const navItems: NavItemDef[] = [
     key: 'research', label: '研究中心', icon: <BarChartOutlined />,
     children: [
       { key: 'research-main', label: '研报/公告/行业', path: '/market-research' },
+      { key: 'market-ext', label: '全球指数/行业', path: '/market-ext' },
     ],
   },
   { key: 'analysis', label: '智能分析', path: '/analysis', icon: <BarChartOutlined /> },

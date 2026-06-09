@@ -27,7 +27,7 @@ function ChangeTag({ v }: { v: any }) {
 }
 
 // ========== 1. 全球指数 ==========
-const GlobalIndices: React.FC = () => {
+export const GlobalIndices: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -57,7 +57,7 @@ const GlobalIndices: React.FC = () => {
 };
 
 // ========== 2. 行业排名 ==========
-const IndustryRanking: React.FC = () => {
+export const IndustryRanking: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -76,7 +76,7 @@ const IndustryRanking: React.FC = () => {
 };
 
 // ========== 3. 个股资金流向 ==========
-const StockMoneyFlow: React.FC = () => {
+export const StockMoneyFlow: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState('netamount');
