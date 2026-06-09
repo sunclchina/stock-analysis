@@ -1531,27 +1531,10 @@ async def is_trading_day():
     t = h * 60 + m
 
     is_trade = False
-    # 直接调用新浪交易日历API（HTTP直连，不走akshare的线程池，避免Python3.14 Errno22问题）
-    try:
-        import httpx
-        _year = now.year
-        _cal_url = f"https://tool.finance.sina.com.cn/tprice/api/tprice.php?callback=json&date={_year}"
-        async with httpx.AsyncClient(timeout=10) as _c:
-            _r = await _c.get(_cal_url, headers={"User-Agent": "Mozilla/5.0"})
-            _text = _r.text
-            # 新浪返回 jsonp 格式: json({...})
-            import re
-            _m = re.search(r'json\((.+)\)', _text)
-            if _m:
-                import json as _jmod
-                _cal_data = _jmod.loads(_m.group(1))
-                # 获取当年的交易日列表
-                _trade_date_str = _cal_data.get("data", {}).get("date", "")
-                if _trade_date_str:
-                    _dates = _trade_date_str.split(",")
-                    is_trade = today in _dates
-    except Exception as e:
-        logger.warning(f"交易日历HTTP调用失败: {e}")
+    # 使用 sina_trade_calendar 模块判断是否为交易日
+    from backend.utils.sina_trade_calendar import is_trading_day as _sina_is_trading_day
+    _d = datetime(now.year, now.month, now.day).date()
+    is_trade = _sina_is_trading_day(_d)
     
     # 降级：HTTP方式失败时用akshare兜底（走线程池）
     if not is_trade:
