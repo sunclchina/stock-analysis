@@ -4,6 +4,7 @@
 """
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy import event
 from sqlalchemy.orm import DeclarativeBase
 
 from backend.config.settings import settings
@@ -15,6 +16,15 @@ engine = create_async_engine(
     echo=(settings.log_level == "DEBUG"),
     connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
 )
+
+# SQLite 并发优化：WAL 模式 + busy_timeout
+if "sqlite" in settings.database_url:
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=10000")
+        cursor.close()
 
 # 会话工厂
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

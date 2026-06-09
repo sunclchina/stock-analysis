@@ -6,6 +6,7 @@
 import logging
 import math
 from typing import Dict, Any, Optional, List
+import certifi
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def fetch_finance_bulk(codes: List[str]) -> Dict[str, Dict[str, Any]]:
     result = {}
 
     try:
-        with httpx.Client(timeout=30) as client:
+        with httpx.Client(timeout=30, verify=certifi.where()) as client:
             r = client.get(url, params=base_params, headers=headers)
             data = r.json()
             total = data.get("data", {}).get("total", 0) or 0

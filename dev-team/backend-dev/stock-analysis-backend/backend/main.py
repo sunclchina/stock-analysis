@@ -22,12 +22,25 @@ from contextlib import asynccontextmanager
 # 全局禁用 tqdm 进度条（AKShare 内部大量使用，输出到 stdout 干扰 asyncio 事件循环）
 os.environ["TQDM_DISABLE"] = "1"
 
+# 全局修复 httpx SSL 证书验证（slim 容器缺乏系统 CA 证书）
+import certifi
+import ssl
+import httpx._config
+httpx._config.DEFAULT_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from backend.config.settings import settings
+
+# SSL_CERT_FILE 是服务器证书路径，httpx 会误用作 CA 包导致验证失败
+_ssl_cert_path = os.environ.get("SSL_CERT_FILE", "")
+if _ssl_cert_path:
+    os.environ["SERVER_SSL_CERT"] = _ssl_cert_path
+    del os.environ["SSL_CERT_FILE"]
+
 from backend.config.database import init_db, async_session_factory
 from backend.api.router import api_router
 from backend.services.websocket_manager import ws_manager
@@ -558,8 +571,8 @@ if __name__ == "__main__":
 
     # SSL 证书配置（通过 .env 或系统环境变量）
     ssl_kwargs = {}
-    if settings.ssl_enabled and settings.ssl_cert_file and settings.ssl_key_file:
-        cert_path = os.path.abspath(settings.ssl_cert_file)
+    if settings.ssl_enabled and os.environ.get("SERVER_SSL_CERT", "") and settings.ssl_key_file:
+        cert_path = os.path.abspath(os.environ["SERVER_SSL_CERT"])
         key_path = os.path.abspath(settings.ssl_key_file)
         if os.path.isfile(cert_path) and os.path.isfile(key_path):
             ssl_kwargs["ssl_certfile"] = cert_path
