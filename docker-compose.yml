@@ -8,6 +8,9 @@ services:
       - D:/docker/stock-analysis/data:/app/data
       - D:/docker/stock-analysis/certs:/app/certs:ro
     env_file: .env
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     command: >
       sh -c "echo 'precedence ::ffff:0:0/96 100' > /etc/gai.conf &&
              python -m backend.main"
