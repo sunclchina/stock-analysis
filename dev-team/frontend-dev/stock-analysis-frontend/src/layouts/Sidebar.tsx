@@ -53,20 +53,9 @@ interface NavItemDef {
 
 const navItems: NavItemDef[] = [
   { key: 'dashboard', label: '仪表盘', path: '/', icon: <DashboardOutlined /> },
-  {
-    key: 'market', label: '实时行情', path: '/market', icon: <StockOutlined />,
-    children: [
-      { key: 'market-overview', label: '行情概览', path: '/market' },
-    ],
-  },
+  { key: 'market', label: '实时行情', path: '/market', icon: <StockOutlined /> },
   { key: 'selection', label: '智能选股', path: '/selection', icon: <FundProjectionScreenOutlined /> },
-  {
-    key: 'research', label: '研究中心', icon: <BarChartOutlined />,
-    children: [
-      { key: 'research-main', label: '研报/公告/行业', path: '/market-research' },
-      { key: 'market-ext', label: '全球指数/行业', path: '/market-ext' },
-    ],
-  },
+  { key: 'research', label: '研究中心', path: '/market-research', icon: <BarChartOutlined /> },
   { key: 'analysis', label: '智能分析', path: '/analysis', icon: <BarChartOutlined /> },
   { key: 'warning', label: '智能预警', path: '/warning', icon: <AlertOutlined /> },
   { key: 'portfolio', label: '资产组合', path: '/portfolio', icon: <WalletOutlined /> },
@@ -222,49 +211,44 @@ const Sidebar: React.FC<SidebarProps> = ({ themeMode, onToggleTheme, onOpenHelp,
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar } = useConfigStore();
 
-  const activeItem = navItems.find((item) => item.path === location.pathname);
-  let selectedKey = activeItem?.key || 'dashboard';
-  if (!activeItem) {
-    for (const parent of navItems) {
-      const child = parent.children?.find((c) => c.path === location.pathname);
-      if (child) { selectedKey = child.key; break; }
-    }
-  }
+  // 路径到侧栏 key 的映射
+  const pathToKey: Record<string, string> = {
+    '/': 'dashboard',
+    '/market': 'market',
+    '/market-ext': 'research',
+    '/market-research': 'research',
+    '/selection': 'selection',
+    '/research': 'research',
+    '/analysis': 'analysis',
+    '/warning': 'warning',
+    '/portfolio': 'portfolio',
+    '/notes': 'notes',
+    '/config': 'config',
+  };
+  const selectedKey = pathToKey[location.pathname] || 'dashboard';
 
   const handleMenuClick = (info: { key: string }) => {
     const item = navItems.find((n) => n.key === info.key);
     if (item && item.path) { navigate(item.path); if (onMobileClose) onMobileClose(); return; }
-    for (const parent of navItems) {
-      const child = parent.children?.find((c) => c.key === info.key);
-      if (child) { navigate(child.path); if (onMobileClose) onMobileClose(); return; }
-    }
     if (info.key === 'users') { navigate('/users'); if (onMobileClose) onMobileClose(); }
   };
 
   const collapsed = sidebarCollapsed;
 
-  const menuItems = navItems.map((item) => {
-    if (item.children) {
-      return {
-        key: item.key, icon: item.icon, label: item.label,
-        children: item.children.map((child) => ({ key: child.key, label: child.label })),
-      };
-    }
-    return {
-      key: item.key,
-      icon: item.badge !== undefined && item.badge > 0 ? (
-        <Badge count={item.badge} size="small" color="#FF4D4F" offset={[4, -4]}>{item.icon}</Badge>
-      ) : item.icon,
-      label: (
-        <span>
-          {item.label}
-          {item.badge !== undefined && item.badge > 0 && (
-            <span style={{ marginLeft: 6, fontSize: 11, color: '#FF4D4F', fontWeight: 600 }}>({item.badge})</span>
-          )}
-        </span>
-      ),
-    };
-  });
+  const menuItems = navItems.map((item) => ({
+    key: item.key,
+    icon: item.badge !== undefined && item.badge > 0 ? (
+      <Badge count={item.badge} size="small" color="#FF4D4F" offset={[4, -4]}>{item.icon}</Badge>
+    ) : item.icon,
+    label: (
+      <span>
+        {item.label}
+        {item.badge !== undefined && item.badge > 0 && (
+          <span style={{ marginLeft: 6, fontSize: 11, color: '#FF4D4F', fontWeight: 600 }}>({item.badge})</span>
+        )}
+      </span>
+    ),
+  }));
   if (isAdmin()) {
     menuItems.push({ key: adminNav.key, icon: adminNav.icon, label: <span>{adminNav.label}</span> });
   }
