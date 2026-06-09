@@ -23,11 +23,6 @@ from contextlib import asynccontextmanager
 os.environ["TQDM_DISABLE"] = "1"
 
 # 全局修复 httpx SSL 证书验证（slim 容器缺乏系统 CA 证书）
-import certifi
-import ssl
-import httpx._config
-httpx._config.DEFAULT_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -35,11 +30,12 @@ from sqlalchemy import select
 
 from backend.config.settings import settings
 
-# SSL_CERT_FILE 是服务器证书路径，httpx 会误用作 CA 包导致验证失败
+# SSL_CERT_FILE 是服务器证书路径，先保存，然后指向 certifi CA 包
+import certifi
 _ssl_cert_path = os.environ.get("SSL_CERT_FILE", "")
 if _ssl_cert_path:
     os.environ["SERVER_SSL_CERT"] = _ssl_cert_path
-    del os.environ["SSL_CERT_FILE"]
+    os.environ["SSL_CERT_FILE"] = certifi.where()
 
 from backend.config.database import init_db, async_session_factory
 from backend.api.router import api_router

@@ -1673,6 +1673,37 @@ async def get_announcements(page: int = 1, page_size: int = 20):
 
 # ─── 财经新闻（财联社）────────────────────────────────────
 
+@router.get("/simple-news")
+async def get_simple_news():
+    """简单版财经新闻（绕过数据源管理器，直调新浪API）"""
+    import httpx
+    import certifi
+    try:
+        async with httpx.AsyncClient(timeout=10.0, verify=certifi.where()) as client:
+            r = await client.get(
+                "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&num=20&versionNumber=1.2.4",
+                headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"}
+            )
+            data = r.json()
+            news_list = data.get("result", {}).get("data", [])
+            if news_list:
+                items = []
+                for item in news_list[:20]:
+                    title = item.get("title", "").strip()
+                    if not title:
+                        continue
+                    items.append({
+                        "title": title,
+                        "content": item.get("intro", "")[:200],
+                        "date": "",
+                        "time": item.get("ctime", ""),
+                    })
+                if items:
+                    return {"items": items, "total": len(items), "source": "sina"}
+    except Exception as e:
+        logger.warning(f"简单新闻获取失败: {e}")
+    return {"items": [], "total": 0, "source": "none"}
+
 @router.get("/news")
 async def get_financial_news():
     """获取最新财经新闻
@@ -1689,7 +1720,7 @@ async def get_financial_news():
             try:
                 import akshare as ak
                 loop = asyncio.get_event_loop()
-                df = await loop.run_in_executor(None, lambda: ak.stock_info_global_cls())
+                df = await loop.run_in_executor(None, lambda: ak.stock_info_global_cls(timeout=5))
                 if df is not None and not df.empty:
                     title_cols = ["标题", "title", "Title", "新闻标题"]
                     content_cols = ["内容", "content", "Content", "摘要", "text", "Text"]
@@ -1719,7 +1750,7 @@ async def get_financial_news():
         if source.name == "eastmoney":
             try:
                 import httpx
-                async with httpx.AsyncClient(timeout=10.0) as client:
+                async with httpx.AsyncClient(timeout=5.0) as client:
                     news_url = "https://newsapi.eastmoney.com/QQJR/?pageNum=1&pageSize=30&type=0"
                     r = await client.get(news_url, headers={"User-Agent": "Mozilla/5.0"})
                     data = r.json()
@@ -1744,10 +1775,37 @@ async def get_financial_news():
     except DataSourceUnavailableError as e:
         logger.warning(f"财经新闻数据源不可用: {e}")
 
+    # ── 最终降级：新浪财经滚动新闻 ──
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&num=20&versionNumber=1.2.4",
+                headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"}
+            )
+            data = r.json()
+            news_list = data.get("result", {}).get("data", [])
+            if news_list:
+                items = []
+                for item in news_list[:20]:
+                    title = item.get("title", "").strip()
+                    if not title:
+                        continue
+                    items.append({
+                        "title": title,
+                        "content": item.get("intro", "")[:200],
+                        "date": "",
+                        "time": item.get("ctime", ""),
+                    })
+                if items:
+                    return {"items": items, "total": len(items), "source": "sina"}
+    except Exception as e4:
+        logger.warning(f"新浪新闻降级失败: {e4}")
+
     # ── 降级：财联社直接爬取 ──
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
                 "https://www.cls.cn/telegraph",
                 headers={"User-Agent": "Mozilla/5.0"}
